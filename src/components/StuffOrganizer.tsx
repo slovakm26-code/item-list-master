@@ -1,0 +1,182 @@
+import { useState, useRef } from 'react';
+import { useAppState } from '@/hooks/useAppState';
+import { Toolbar } from '@/components/Toolbar';
+import { CategoryTree } from '@/components/CategoryTree';
+import { VirtualizedList } from '@/components/VirtualizedList';
+import { DetailPanel } from '@/components/DetailPanel';
+import { ItemDialog } from '@/components/ItemDialog';
+import { BackupDialog } from '@/components/BackupDialog';
+import { Item, SortableColumn } from '@/types';
+import { downloadExport, importDatabase, createBackup } from '@/lib/database';
+import { toast } from 'sonner';
+
+export const StuffOrganizer = () => {
+  const {
+    state,
+    replaceState,
+    // Categories
+    addCategory,
+    updateCategory,
+    deleteCategory,
+    moveCategoryUp,
+    moveCategoryDown,
+    // Items
+    addItem,
+    updateItem,
+    deleteItems,
+    moveItemsToCategory,
+    moveItemUp,
+    moveItemDown,
+    // Selection
+    setSelectedCategory,
+    setSelectedItems,
+    toggleItemSelection,
+    // Search and sort
+    setSearchQuery,
+    setSorting,
+    setUseManualOrder,
+    // Computed
+    filteredItems,
+    selectedItem,
+    getCategoryItemCount,
+  } = useAppState();
+
+  const [itemDialogOpen, setItemDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
+  const [backupDialogOpen, setBackupDialogOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAddItem = () => {
+    setEditingItem(null);
+    setItemDialogOpen(true);
+  };
+
+  const handleEditItem = (item: Item) => {
+    setEditingItem(item);
+    setItemDialogOpen(true);
+  };
+
+  const handleSaveItem = (item: Omit<Item, 'id' | 'orderIndex' | 'addedDate'>) => {
+    addItem(item);
+    toast.success('Item added successfully');
+  };
+
+  const handleUpdateItem = (id: string, updates: Partial<Item>) => {
+    updateItem(id, updates);
+    toast.success('Item updated successfully');
+  };
+
+  const handleDeleteItems = (ids: string[]) => {
+    deleteItems(ids);
+    toast.success(`${ids.length} item(s) deleted`);
+  };
+
+  const handleExport = () => {
+    downloadExport();
+    toast.success('Database exported successfully');
+  };
+
+  const handleImport = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const newState = await importDatabase(file);
+        replaceState(newState);
+        toast.success('Database imported successfully');
+      } catch (error) {
+        toast.error('Failed to import database. Invalid file format.');
+      }
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleBackup = () => {
+    createBackup();
+    toast.success('Backup created successfully');
+  };
+
+  return (
+    <div className="app-container">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        className="hidden"
+        onChange={handleFileSelected}
+      />
+
+      <Toolbar
+        searchQuery={state.searchQuery}
+        onSearchChange={setSearchQuery}
+        onAddItem={handleAddItem}
+        onExport={handleExport}
+        onImport={handleImport}
+        onBackup={handleBackup}
+        onManageBackups={() => setBackupDialogOpen(true)}
+      />
+
+      <div className="app-main">
+        <CategoryTree
+          categories={state.categories}
+          selectedCategoryId={state.selectedCategoryId}
+          onSelectCategory={setSelectedCategory}
+          onAddCategory={addCategory}
+          onUpdateCategory={updateCategory}
+          onDeleteCategory={deleteCategory}
+          onMoveUp={moveCategoryUp}
+          onMoveDown={moveCategoryDown}
+          getCategoryItemCount={getCategoryItemCount}
+        />
+
+        <div className="app-content">
+          <VirtualizedList
+            items={filteredItems}
+            categories={state.categories}
+            selectedItemIds={state.selectedItemIds}
+            sortColumn={state.sortColumn as SortableColumn | null}
+            sortDirection={state.sortDirection}
+            useManualOrder={state.useManualOrder}
+            onSelectItem={toggleItemSelection}
+            onSetSelectedItems={setSelectedItems}
+            onSort={setSorting}
+            onSetManualOrder={setUseManualOrder}
+            onEditItem={handleEditItem}
+            onDeleteItems={handleDeleteItems}
+            onMoveItemsToCategory={moveItemsToCategory}
+            onMoveItemUp={moveItemUp}
+            onMoveItemDown={moveItemDown}
+          />
+        </div>
+
+        <DetailPanel
+          item={selectedItem}
+          categories={state.categories}
+          onUpdateItem={handleUpdateItem}
+          selectedCount={state.selectedItemIds.length}
+        />
+      </div>
+
+      <ItemDialog
+        open={itemDialogOpen}
+        onOpenChange={setItemDialogOpen}
+        item={editingItem}
+        categories={state.categories}
+        defaultCategoryId={state.selectedCategoryId}
+        onSave={handleSaveItem}
+        onUpdate={handleUpdateItem}
+      />
+
+      <BackupDialog
+        open={backupDialogOpen}
+        onOpenChange={setBackupDialogOpen}
+        onRestore={replaceState}
+      />
+    </div>
+  );
+};
