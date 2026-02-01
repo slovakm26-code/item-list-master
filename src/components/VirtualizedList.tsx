@@ -85,8 +85,6 @@ export const VirtualizedList = ({
   const [columns, setColumns] = useState<Column[]>(defaultColumns);
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; itemId: string } | null>(null);
-  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
-  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
 
   // Update container height on resize
   useEffect(() => {
@@ -179,65 +177,6 @@ export const VirtualizedList = ({
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
   }, []);
-
-  // Drag and drop handlers for manual reordering
-  const handleDragStart = (itemId: string) => (e: React.DragEvent) => {
-    if (!useManualOrder) return;
-    setDraggedItemId(itemId);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', itemId);
-  };
-
-  const handleDragOver = (itemId: string) => (e: React.DragEvent) => {
-    if (!useManualOrder || !draggedItemId || draggedItemId === itemId) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverItemId(itemId);
-  };
-
-  const handleDragLeave = () => {
-    setDragOverItemId(null);
-  };
-
-  const handleDrop = (targetItemId: string) => (e: React.DragEvent) => {
-    e.preventDefault();
-    if (!useManualOrder || !draggedItemId || draggedItemId === targetItemId) {
-      setDraggedItemId(null);
-      setDragOverItemId(null);
-      return;
-    }
-
-    // Find indices
-    const draggedIndex = items.findIndex(i => i.id === draggedItemId);
-    const targetIndex = items.findIndex(i => i.id === targetItemId);
-
-    if (draggedIndex === -1 || targetIndex === -1) {
-      setDraggedItemId(null);
-      setDragOverItemId(null);
-      return;
-    }
-
-    // Move the item up or down based on position
-    if (draggedIndex < targetIndex) {
-      // Moving down - call moveDown multiple times
-      for (let i = draggedIndex; i < targetIndex; i++) {
-        onMoveItemDown(draggedItemId);
-      }
-    } else {
-      // Moving up - call moveUp multiple times
-      for (let i = draggedIndex; i > targetIndex; i--) {
-        onMoveItemUp(draggedItemId);
-      }
-    }
-
-    setDraggedItemId(null);
-    setDragOverItemId(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedItemId(null);
-    setDragOverItemId(null);
-  };
 
   // Format date
   const formatDate = (dateString: string) => {
@@ -391,9 +330,7 @@ export const VirtualizedList = ({
                   className={cn(
                     "list-row absolute w-full",
                     isSelected && "selected",
-                    actualIndex % 2 === 1 && !isSelected && "bg-table-row-alt",
-                    draggedItemId === item.id && "opacity-50",
-                    dragOverItemId === item.id && "ring-2 ring-primary ring-inset"
+                    actualIndex % 2 === 1 && !isSelected && "bg-table-row-alt"
                   )}
                   style={{ 
                     top: actualIndex * ROW_HEIGHT,
@@ -403,15 +340,9 @@ export const VirtualizedList = ({
                   onClick={(e) => handleRowClick(item, e)}
                   onContextMenu={(e) => handleContextMenu(item, e)}
                   onDoubleClick={() => onEditItem(item)}
-                  draggable={useManualOrder}
-                  onDragStart={handleDragStart(item.id)}
-                  onDragOver={handleDragOver(item.id)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop(item.id)}
-                  onDragEnd={handleDragEnd}
                 >
                   {useManualOrder && (
-                    <div className="w-10 shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing">
+                    <div className="w-10 shrink-0 flex items-center justify-center cursor-grab">
                       <GripVertical className="w-4 h-4 text-muted-foreground" />
                     </div>
                   )}
