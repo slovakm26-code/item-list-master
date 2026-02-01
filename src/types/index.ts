@@ -4,6 +4,7 @@ export interface Category {
   parentId: string | null;
   orderIndex: number;
   icon?: string;
+  emoji?: string;
 }
 
 export interface Item {
@@ -18,6 +19,17 @@ export interface Item {
   addedDate: string;
   coverPath: string;
   orderIndex: number;
+}
+
+export interface ColumnWidth {
+  key: string;
+  width: number;
+}
+
+export interface UIPreferences {
+  columnWidths: ColumnWidth[];
+  detailPanelHeight: number;
+  detailPanelVisible: boolean;
 }
 
 export interface AppState {

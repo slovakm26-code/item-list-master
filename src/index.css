@@ -6,23 +6,23 @@
 
 @layer base {
   :root {
-    --background: 220 14% 96%;
-    --foreground: 220 20% 10%;
+    --background: 0 0% 98%;
+    --foreground: 0 0% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card-foreground: 0 0% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover-foreground: 0 0% 10%;
 
     --primary: 217 91% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 92%;
-    --secondary-foreground: 220 20% 20%;
+    --secondary: 0 0% 94%;
+    --secondary-foreground: 0 0% 20%;
 
-    --muted: 220 14% 94%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 0 0% 94%;
+    --muted-foreground: 0 0% 45%;
 
     --accent: 217 91% 95%;
     --accent-foreground: 217 91% 40%;
@@ -36,58 +36,58 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 220 13% 88%;
-    --input: 220 13% 88%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
     --ring: 217 91% 50%;
 
-    --radius: 0.5rem;
+    --radius: 0.25rem;
 
     /* Custom app variables */
-    --sidebar-width: 280px;
-    --detail-width: 360px;
+    --sidebar-width: 240px;
     --toolbar-height: 48px;
     --row-height: 32px;
-    --header-height: 36px;
+    --header-height: 32px;
+    --detail-height: 280px;
 
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 20% 20%;
+    --sidebar-foreground: 0 0% 20%;
     --sidebar-primary: 217 91% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 217 91% 95%;
     --sidebar-accent-foreground: 217 91% 40%;
-    --sidebar-border: 220 13% 88%;
+    --sidebar-border: 0 0% 90%;
     --sidebar-ring: 217 91% 50%;
 
-    --table-header: 220 14% 94%;
-    --table-row-hover: 217 91% 97%;
-    --table-row-selected: 217 91% 93%;
-    --table-row-alt: 220 14% 98%;
+    --table-header: 0 0% 98%;
+    --table-row-hover: 0 0% 96%;
+    --table-row-selected: 217 91% 95%;
+    --table-row-alt: 0 0% 99%;
 
-    --resizer: 220 13% 80%;
+    --resizer: 0 0% 85%;
     --resizer-active: 217 91% 50%;
   }
 
   .dark {
-    --background: 222 47% 8%;
-    --foreground: 210 40% 98%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 90%;
 
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 90%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 90%;
 
     --primary: 217 91% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 47% 15%;
-    --secondary-foreground: 210 40% 90%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 80%;
 
-    --muted: 222 47% 15%;
-    --muted-foreground: 215 20% 55%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 55%;
 
-    --accent: 217 91% 20%;
-    --accent-foreground: 217 91% 75%;
+    --accent: 217 91% 15%;
+    --accent-foreground: 217 91% 70%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
@@ -98,25 +98,25 @@
     --warning: 38 92% 45%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 222 47% 18%;
-    --input: 222 47% 18%;
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
     --ring: 217 91% 55%;
 
-    --sidebar-background: 222 47% 10%;
-    --sidebar-foreground: 210 40% 90%;
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 0 0% 85%;
     --sidebar-primary: 217 91% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 91% 18%;
-    --sidebar-accent-foreground: 217 91% 75%;
-    --sidebar-border: 222 47% 18%;
+    --sidebar-accent: 217 91% 12%;
+    --sidebar-accent-foreground: 217 91% 70%;
+    --sidebar-border: 0 0% 15%;
     --sidebar-ring: 217 91% 55%;
 
-    --table-header: 222 47% 12%;
-    --table-row-hover: 217 91% 15%;
-    --table-row-selected: 217 91% 20%;
-    --table-row-alt: 222 47% 9%;
+    --table-header: 0 0% 6%;
+    --table-row-hover: 0 0% 10%;
+    --table-row-selected: 217 50% 15%;
+    --table-row-alt: 0 0% 5%;
 
-    --resizer: 222 47% 25%;
+    --resizer: 0 0% 20%;
     --resizer-active: 217 91% 55%;
   }
 }
@@ -131,22 +131,22 @@
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 
-  /* Custom scrollbar */
+  /* Custom scrollbar - minimal */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-muted/50;
+    @apply bg-transparent;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/30 rounded-full;
+    @apply bg-muted-foreground/20 rounded-full;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/50;
+    @apply bg-muted-foreground/30;
   }
 }
 
@@ -156,11 +156,15 @@
   }
 
   .app-toolbar {
-    @apply h-[var(--toolbar-height)] flex items-center px-3 gap-2 border-b bg-card;
+    @apply h-[var(--toolbar-height)] flex items-center px-4 gap-3 border-b bg-background;
   }
 
   .app-main {
-    @apply flex-1 flex overflow-hidden;
+    @apply flex-1 flex flex-col overflow-hidden;
+  }
+
+  .app-top-section {
+    @apply flex-1 flex overflow-hidden min-h-0;
   }
 
   .app-sidebar {
@@ -172,60 +176,69 @@
   }
 
   .app-detail {
-    @apply w-[var(--detail-width)] flex flex-col border-l bg-card overflow-y-auto;
+    @apply flex flex-col border-t bg-card overflow-hidden;
+    min-height: 100px;
+  }
+
+  .app-detail-content {
+    @apply flex-1 overflow-y-auto p-6;
   }
 
   .tree-item {
-    @apply flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors;
+    @apply flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors;
   }
 
   .tree-item:hover {
-    @apply bg-sidebar-accent;
+    @apply bg-muted/50;
   }
 
   .tree-item.active {
-    @apply bg-primary text-primary-foreground;
+    @apply bg-accent text-accent-foreground;
+    border-left: 3px solid hsl(var(--primary));
+    padding-left: 9px;
   }
 
   .list-header {
-    @apply h-[var(--header-height)] flex items-center bg-[hsl(var(--table-header))] border-b text-sm font-medium;
+    @apply h-[var(--header-height)] flex items-center text-xs font-medium text-muted-foreground uppercase tracking-wide;
   }
 
   .list-row {
-    @apply h-[var(--row-height)] flex items-center border-b border-border/50 text-sm cursor-pointer transition-colors;
+    @apply h-[var(--row-height)] flex items-center text-sm cursor-pointer transition-colors border-b border-border/30;
   }
 
   .list-row:hover {
-    @apply bg-[hsl(var(--table-row-hover))];
+    @apply bg-muted/50;
   }
 
   .list-row.selected {
     @apply bg-[hsl(var(--table-row-selected))];
   }
 
-  .list-row:nth-child(even) {
-    @apply bg-[hsl(var(--table-row-alt))];
-  }
-
-  .list-row:nth-child(even):hover {
-    @apply bg-[hsl(var(--table-row-hover))];
-  }
-
   .resizer {
-    @apply w-1 cursor-col-resize bg-transparent hover:bg-[hsl(var(--resizer-active))] transition-colors;
+    @apply w-px cursor-col-resize bg-border/50 hover:bg-primary transition-colors;
   }
 
   .resizer:active {
-    @apply bg-[hsl(var(--resizer-active))];
+    @apply bg-primary;
+  }
+
+  .resizer-horizontal {
+    @apply h-1 cursor-row-resize bg-transparent hover:bg-primary/50 transition-colors flex items-center justify-center;
+  }
+
+  .resizer-horizontal:active {
+    @apply bg-primary;
   }
 
   .cover-container {
-    @apply aspect-[2/3] bg-muted rounded-lg overflow-hidden;
+    @apply aspect-[2/3] bg-muted overflow-hidden;
+    border-radius: 2px;
   }
 
   .toolbar-btn {
-    @apply inline-flex items-center justify-center gap-1.5 px-3 h-8 text-sm font-medium rounded-md transition-colors;
-    @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
+    @apply inline-flex items-center justify-center gap-2 px-3 h-8 text-sm font-medium transition-colors;
+    @apply bg-transparent text-foreground hover:bg-muted;
+    border-radius: 2px;
   }
 
   .toolbar-btn-primary {
@@ -233,20 +246,26 @@
   }
 
   .context-menu {
-    @apply bg-popover border rounded-lg shadow-lg py-1 min-w-[180px];
+    @apply bg-popover border py-1 min-w-[180px];
+    border-radius: 4px;
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.2);
   }
 
   .context-menu-item {
     @apply flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer transition-colors;
-    @apply hover:bg-accent hover:text-accent-foreground;
+    @apply hover:bg-muted;
   }
 
-  .dragging {
-    @apply opacity-50;
+  .detail-section {
+    @apply space-y-1;
   }
 
-  .drag-over {
-    @apply ring-2 ring-primary ring-offset-1;
+  .detail-label {
+    @apply text-xs text-muted-foreground uppercase tracking-wide;
+  }
+
+  .detail-value {
+    @apply text-sm;
   }
 }
 
