@@ -248,6 +248,21 @@
   .drag-over {
     @apply ring-2 ring-primary ring-offset-1;
   }
+
+  /* Detail panel drag handle */
+  .detail-drag-handle {
+    @apply h-1 cursor-ns-resize bg-transparent hover:bg-primary/50 transition-colors flex items-center justify-center;
+  }
+
+  .detail-drag-handle:active {
+    @apply bg-primary;
+  }
+
+  /* Detail panel toggle - full width bar */
+  .detail-toggle {
+    @apply w-full h-6 flex items-center justify-center;
+    @apply bg-card border-t border-b text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer;
+  }
 }
 
 @layer utilities {
