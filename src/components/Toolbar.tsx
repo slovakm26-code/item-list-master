@@ -1,4 +1,4 @@
-import { Plus, Download, Upload, Database, Moon, Sun, Settings, Info } from 'lucide-react';
+import { Plus, Download, Upload, Database, Moon, Sun, Archive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -36,7 +36,7 @@ export const Toolbar = ({
       <Button 
         onClick={onAddItem} 
         size="sm" 
-        className="gap-1.5"
+        className="gap-1.5 h-8"
       >
         <Plus className="w-4 h-4" />
         Add Item
@@ -44,7 +44,7 @@ export const Toolbar = ({
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-1.5">
+          <Button variant="ghost" size="sm" className="gap-1.5 h-8">
             <Database className="w-4 h-4" />
             Database
           </Button>
@@ -52,19 +52,19 @@ export const Toolbar = ({
         <DropdownMenuContent align="start">
           <DropdownMenuItem onClick={onExport}>
             <Download className="w-4 h-4 mr-2" />
-            Export Database
+            Export
           </DropdownMenuItem>
           <DropdownMenuItem onClick={onImport}>
             <Upload className="w-4 h-4 mr-2" />
-            Import Database
+            Import
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onBackup}>
-            <Database className="w-4 h-4 mr-2" />
+            <Archive className="w-4 h-4 mr-2" />
             Create Backup
           </DropdownMenuItem>
           <DropdownMenuItem onClick={onManageBackups}>
-            <Settings className="w-4 h-4 mr-2" />
+            <Database className="w-4 h-4 mr-2" />
             Manage Backups
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -72,13 +72,13 @@ export const Toolbar = ({
 
       <div className="flex-1" />
 
-      <div className="relative w-64">
+      <div className="relative w-56">
         <Input
           type="text"
-          placeholder="Search items..."
+          placeholder="Search..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="h-8 pr-8"
+          className="h-8 text-sm"
         />
       </div>
 
@@ -93,10 +93,6 @@ export const Toolbar = ({
         ) : (
           <Moon className="w-4 h-4" />
         )}
-      </Button>
-
-      <Button variant="ghost" size="icon" className="w-8 h-8">
-        <Info className="w-4 h-4" />
       </Button>
     </div>
   );

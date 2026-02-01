@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useAppState } from '@/hooks/useAppState';
+import { useUIPreferences } from '@/hooks/useUIPreferences';
 import { Toolbar } from '@/components/Toolbar';
 import { CategoryTree } from '@/components/CategoryTree';
 import { VirtualizedList } from '@/components/VirtualizedList';
@@ -41,10 +42,27 @@ export const StuffOrganizer = () => {
     getCategoryItemCount,
   } = useAppState();
 
+  const {
+    preferences,
+    setColumnWidth,
+    getColumnWidth,
+    setDetailPanelHeight,
+    toggleDetailPanel,
+  } = useUIPreferences();
+
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [backupDialogOpen, setBackupDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Convert column widths to object format
+  const columnWidths = useMemo(() => {
+    const widths: Record<string, number> = {};
+    preferences.columnWidths.forEach(c => {
+      widths[c.key] = c.width;
+    });
+    return widths;
+  }, [preferences.columnWidths]);
 
   const handleAddItem = () => {
     setEditingItem(null);
@@ -122,43 +140,53 @@ export const StuffOrganizer = () => {
       />
 
       <div className="app-main">
-        <CategoryTree
-          categories={state.categories}
-          selectedCategoryId={state.selectedCategoryId}
-          onSelectCategory={setSelectedCategory}
-          onAddCategory={addCategory}
-          onUpdateCategory={updateCategory}
-          onDeleteCategory={deleteCategory}
-          onMoveUp={moveCategoryUp}
-          onMoveDown={moveCategoryDown}
-          getCategoryItemCount={getCategoryItemCount}
-        />
-
-        <div className="app-content">
-          <VirtualizedList
-            items={filteredItems}
+        {/* Top section: Sidebar + Table */}
+        <div className="app-top-section">
+          <CategoryTree
             categories={state.categories}
-            selectedItemIds={state.selectedItemIds}
-            sortColumn={state.sortColumn as SortableColumn | null}
-            sortDirection={state.sortDirection}
-            useManualOrder={state.useManualOrder}
-            onSelectItem={toggleItemSelection}
-            onSetSelectedItems={setSelectedItems}
-            onSort={setSorting}
-            onSetManualOrder={setUseManualOrder}
-            onEditItem={handleEditItem}
-            onDeleteItems={handleDeleteItems}
-            onMoveItemsToCategory={moveItemsToCategory}
-            onMoveItemUp={moveItemUp}
-            onMoveItemDown={moveItemDown}
+            selectedCategoryId={state.selectedCategoryId}
+            onSelectCategory={setSelectedCategory}
+            onAddCategory={addCategory}
+            onUpdateCategory={updateCategory}
+            onDeleteCategory={deleteCategory}
+            onMoveUp={moveCategoryUp}
+            onMoveDown={moveCategoryDown}
+            getCategoryItemCount={getCategoryItemCount}
           />
+
+          <div className="app-content">
+            <VirtualizedList
+              items={filteredItems}
+              categories={state.categories}
+              selectedItemIds={state.selectedItemIds}
+              sortColumn={state.sortColumn as SortableColumn | null}
+              sortDirection={state.sortDirection}
+              useManualOrder={state.useManualOrder}
+              columnWidths={columnWidths}
+              onColumnResize={setColumnWidth}
+              onSelectItem={toggleItemSelection}
+              onSetSelectedItems={setSelectedItems}
+              onSort={setSorting}
+              onSetManualOrder={setUseManualOrder}
+              onEditItem={handleEditItem}
+              onDeleteItems={handleDeleteItems}
+              onMoveItemsToCategory={moveItemsToCategory}
+              onMoveItemUp={moveItemUp}
+              onMoveItemDown={moveItemDown}
+            />
+          </div>
         </div>
 
+        {/* Bottom section: Detail panel */}
         <DetailPanel
           item={selectedItem}
           categories={state.categories}
           onUpdateItem={handleUpdateItem}
           selectedCount={state.selectedItemIds.length}
+          height={preferences.detailPanelHeight}
+          visible={preferences.detailPanelVisible}
+          onHeightChange={setDetailPanelHeight}
+          onToggleVisible={toggleDetailPanel}
         />
       </div>
 

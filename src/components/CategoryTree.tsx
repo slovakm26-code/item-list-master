@@ -2,13 +2,6 @@ import { useState, useCallback } from 'react';
 import { 
   ChevronRight, 
   ChevronDown, 
-  Folder, 
-  Film, 
-  Tv, 
-  Gamepad2, 
-  Music, 
-  BookOpen, 
-  AppWindow,
   Plus,
   MoreVertical,
   Pencil,
@@ -35,16 +28,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-
-const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-  folder: Folder,
-  film: Film,
-  tv: Tv,
-  'gamepad-2': Gamepad2,
-  music: Music,
-  'book-open': BookOpen,
-  'app-window': AppWindow,
-};
 
 interface CategoryTreeProps {
   categories: Category[];
@@ -95,7 +78,6 @@ const TreeNode = ({
   const hasChildren = children.length > 0;
   const isExpanded = expandedIds.has(category.id);
   const isSelected = selectedCategoryId === category.id;
-  const Icon = iconMap[category.icon || 'folder'] || Folder;
   const itemCount = getCategoryItemCount(category.id);
   const isProtected = category.id === 'all';
 
@@ -106,7 +88,7 @@ const TreeNode = ({
           'tree-item group',
           isSelected && 'active'
         )}
-        style={{ paddingLeft: `${8 + level * 16}px` }}
+        style={{ paddingLeft: `${12 + level * 16}px` }}
         onClick={() => onSelect(category.id)}
       >
         <button
@@ -118,23 +100,18 @@ const TreeNode = ({
         >
           {hasChildren ? (
             isExpanded ? (
-              <ChevronDown className="w-3.5 h-3.5" />
+              <ChevronDown className="w-3 h-3 text-muted-foreground" />
             ) : (
-              <ChevronRight className="w-3.5 h-3.5" />
+              <ChevronRight className="w-3 h-3 text-muted-foreground" />
             )
           ) : null}
         </button>
         
-        <Icon className="w-4 h-4 shrink-0" />
+        <span className="text-base shrink-0">{category.emoji || '📁'}</span>
         
         <span className="flex-1 truncate text-sm">{category.name}</span>
         
-        <span className={cn(
-          "text-xs px-1.5 py-0.5 rounded-full shrink-0",
-          isSelected 
-            ? "bg-primary-foreground/20 text-primary-foreground" 
-            : "bg-muted text-muted-foreground"
-        )}>
+        <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
           {itemCount}
         </span>
 
@@ -142,15 +119,10 @@ const TreeNode = ({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
-                className={cn(
-                  "w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity",
-                  isSelected 
-                    ? "hover:bg-primary-foreground/20" 
-                    : "hover:bg-muted"
-                )}
+                className="w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={(e) => e.stopPropagation()}
               >
-                <MoreVertical className="w-3.5 h-3.5" />
+                <MoreVertical className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -185,7 +157,7 @@ const TreeNode = ({
       </div>
 
       {hasChildren && isExpanded && (
-        <div className="animate-fade-in">
+        <div>
           {children.map(child => (
             <TreeNode
               key={child.id}
@@ -271,8 +243,8 @@ export const CategoryTree = ({
 
   return (
     <div className="app-sidebar">
-      <div className="flex items-center justify-between px-3 py-2 border-b">
-        <span className="text-sm font-medium">Categories</span>
+      <div className="flex items-center justify-between px-4 py-3 border-b">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Categories</span>
         <Button
           variant="ghost"
           size="icon"
@@ -287,7 +259,7 @@ export const CategoryTree = ({
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-1">
+      <div className="flex-1 overflow-y-auto py-2">
         {rootCategories.map(category => (
           <TreeNode
             key={category.id}

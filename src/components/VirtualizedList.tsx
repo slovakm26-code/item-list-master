@@ -3,41 +3,29 @@ import {
   ArrowUp, 
   ArrowDown, 
   ArrowUpDown,
-  MoreVertical,
   Pencil,
   Trash2,
   FolderInput,
   GripVertical,
 } from 'lucide-react';
 import { Item, Category, SortableColumn } from '@/types';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface Column {
   key: SortableColumn | 'genres';
   label: string;
-  width: number;
   minWidth: number;
   sortable: boolean;
 }
 
-const defaultColumns: Column[] = [
-  { key: 'name', label: 'Name', width: 300, minWidth: 150, sortable: true },
-  { key: 'year', label: 'Year', width: 80, minWidth: 60, sortable: true },
-  { key: 'rating', label: 'Rating', width: 80, minWidth: 60, sortable: true },
-  { key: 'genres', label: 'Genres', width: 200, minWidth: 100, sortable: false },
-  { key: 'addedDate', label: 'Added', width: 150, minWidth: 100, sortable: true },
-  { key: 'path', label: 'Path', width: 300, minWidth: 150, sortable: true },
+const columnDefs: Column[] = [
+  { key: 'name', label: 'Name', minWidth: 120, sortable: true },
+  { key: 'year', label: 'Year', minWidth: 50, sortable: true },
+  { key: 'rating', label: 'Rating', minWidth: 50, sortable: true },
+  { key: 'genres', label: 'Genres', minWidth: 80, sortable: false },
+  { key: 'addedDate', label: 'Added', minWidth: 80, sortable: true },
+  { key: 'path', label: 'Path', minWidth: 100, sortable: true },
 ];
 
 interface VirtualizedListProps {
@@ -47,6 +35,8 @@ interface VirtualizedListProps {
   sortColumn: SortableColumn | null;
   sortDirection: 'asc' | 'desc';
   useManualOrder: boolean;
+  columnWidths: Record<string, number>;
+  onColumnResize: (key: string, width: number) => void;
   onSelectItem: (itemId: string, isMultiSelect: boolean) => void;
   onSetSelectedItems: (itemIds: string[]) => void;
   onSort: (column: SortableColumn) => void;
@@ -59,7 +49,7 @@ interface VirtualizedListProps {
 }
 
 const ROW_HEIGHT = 32;
-const HEADER_HEIGHT = 36;
+const HEADER_HEIGHT = 32;
 const OVERSCAN = 5;
 
 export const VirtualizedList = ({
@@ -69,6 +59,8 @@ export const VirtualizedList = ({
   sortColumn,
   sortDirection,
   useManualOrder,
+  columnWidths,
+  onColumnResize,
   onSelectItem,
   onSetSelectedItems,
   onSort,
@@ -82,9 +74,10 @@ export const VirtualizedList = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [containerHeight, setContainerHeight] = useState(0);
-  const [columns, setColumns] = useState<Column[]>(defaultColumns);
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; itemId: string } | null>(null);
+
+  const getColumnWidth = (key: string) => columnWidths[key] || 100;
 
   // Update container height on resize
   useEffect(() => {
@@ -126,16 +119,14 @@ export const VirtualizedList = ({
     setResizingColumn(columnKey);
 
     const startX = e.clientX;
-    const column = columns.find(c => c.key === columnKey);
-    const startWidth = column?.width || 100;
+    const startWidth = getColumnWidth(columnKey);
+    const column = columnDefs.find(c => c.key === columnKey);
+    const minWidth = column?.minWidth || 50;
 
     const handleMouseMove = (e: MouseEvent) => {
       const diff = e.clientX - startX;
-      setColumns(prev => prev.map(c => 
-        c.key === columnKey 
-          ? { ...c, width: Math.max(c.minWidth, startWidth + diff) }
-          : c
-      ));
+      const newWidth = Math.max(minWidth, startWidth + diff);
+      onColumnResize(columnKey, newWidth);
     };
 
     const handleMouseUp = () => {
@@ -185,8 +176,6 @@ export const VirtualizedList = ({
       day: '2-digit', 
       month: '2-digit', 
       year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
     });
   };
 
@@ -212,47 +201,48 @@ export const VirtualizedList = ({
 
   // Render sort indicator
   const renderSortIndicator = (columnKey: string) => {
-    if (!columns.find(c => c.key === columnKey)?.sortable) return null;
+    const column = columnDefs.find(c => c.key === columnKey);
+    if (!column?.sortable) return null;
     
     if (sortColumn === columnKey) {
       return sortDirection === 'asc' 
-        ? <ArrowUp className="w-3.5 h-3.5" />
-        : <ArrowDown className="w-3.5 h-3.5" />;
+        ? <ArrowUp className="w-3 h-3" />
+        : <ArrowDown className="w-3 h-3" />;
     }
-    return <ArrowUpDown className="w-3.5 h-3.5 opacity-30" />;
+    return <ArrowUpDown className="w-3 h-3 opacity-30" />;
   };
 
-  const totalWidth = columns.reduce((sum, col) => sum + col.width, 0) + (useManualOrder ? 40 : 0);
+  const totalWidth = columnDefs.reduce((sum, col) => sum + getColumnWidth(col.key), 0) + (useManualOrder ? 32 : 0);
   const movableCategories = categories.filter(c => c.id !== 'all');
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Order mode toggle */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30">
+      <div className="flex items-center gap-3 px-4 py-2 border-b bg-muted/30">
         <span className="text-xs text-muted-foreground">Order:</span>
         <Button
           variant={!useManualOrder ? "secondary" : "ghost"}
           size="sm"
-          className="h-6 text-xs"
+          className="h-6 text-xs px-2"
           onClick={() => onSetManualOrder(false)}
         >
-          Automatic
+          Auto
         </Button>
         <Button
           variant={useManualOrder ? "secondary" : "ghost"}
           size="sm"
-          className="h-6 text-xs"
+          className="h-6 text-xs px-2"
           onClick={() => onSetManualOrder(true)}
         >
           Manual
         </Button>
         {useManualOrder && selectedItemIds.length === 1 && (
           <>
-            <div className="w-px h-4 bg-border mx-1" />
+            <div className="w-px h-4 bg-border" />
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 text-xs gap-1"
+              className="h-6 text-xs gap-1 px-2"
               onClick={() => onMoveItemUp(selectedItemIds[0])}
             >
               <ArrowUp className="w-3 h-3" /> Up
@@ -260,7 +250,7 @@ export const VirtualizedList = ({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 text-xs gap-1"
+              className="h-6 text-xs gap-1 px-2"
               onClick={() => onMoveItemDown(selectedItemIds[0])}
             >
               <ArrowDown className="w-3 h-3" /> Down
@@ -268,8 +258,8 @@ export const VirtualizedList = ({
           </>
         )}
         <div className="flex-1" />
-        <span className="text-xs text-muted-foreground">
-          {items.length} items {selectedItemIds.length > 0 && `(${selectedItemIds.length} selected)`}
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {items.length} items {selectedItemIds.length > 0 && `· ${selectedItemIds.length} selected`}
         </span>
       </div>
 
@@ -282,24 +272,24 @@ export const VirtualizedList = ({
         <div style={{ minWidth: totalWidth }}>
           {/* Header */}
           <div 
-            className="list-header sticky top-0 z-10"
+            className="list-header sticky top-0 z-10 bg-background border-b"
             style={{ width: totalWidth }}
           >
             {useManualOrder && (
-              <div className="w-10 shrink-0 flex items-center justify-center">
-                <GripVertical className="w-4 h-4 text-muted-foreground" />
+              <div className="w-8 shrink-0 flex items-center justify-center">
+                <GripVertical className="w-3 h-3 text-muted-foreground" />
               </div>
             )}
-            {columns.map((column) => (
+            {columnDefs.map((column) => (
               <div
                 key={column.key}
                 className="flex items-center relative shrink-0"
-                style={{ width: column.width }}
+                style={{ width: getColumnWidth(column.key) }}
               >
                 <button
                   className={cn(
-                    "flex items-center gap-1 px-2 h-full text-left flex-1",
-                    column.sortable && "hover:bg-muted/50 cursor-pointer"
+                    "flex items-center gap-1 px-3 h-full text-left flex-1",
+                    column.sortable && "hover:text-foreground cursor-pointer"
                   )}
                   onClick={() => column.sortable && onSort(column.key as SortableColumn)}
                   disabled={!column.sortable}
@@ -329,8 +319,7 @@ export const VirtualizedList = ({
                   key={item.id}
                   className={cn(
                     "list-row absolute w-full",
-                    isSelected && "selected",
-                    actualIndex % 2 === 1 && !isSelected && "bg-table-row-alt"
+                    isSelected && "selected"
                   )}
                   style={{ 
                     top: actualIndex * ROW_HEIGHT,
@@ -342,15 +331,15 @@ export const VirtualizedList = ({
                   onDoubleClick={() => onEditItem(item)}
                 >
                   {useManualOrder && (
-                    <div className="w-10 shrink-0 flex items-center justify-center cursor-grab">
-                      <GripVertical className="w-4 h-4 text-muted-foreground" />
+                    <div className="w-8 shrink-0 flex items-center justify-center cursor-grab">
+                      <GripVertical className="w-3 h-3 text-muted-foreground" />
                     </div>
                   )}
-                  {columns.map((column) => (
+                  {columnDefs.map((column) => (
                     <div
                       key={column.key}
-                      className="px-2 truncate shrink-0 flex items-center"
-                      style={{ width: column.width }}
+                      className="px-3 truncate shrink-0 flex items-center"
+                      style={{ width: getColumnWidth(column.key) }}
                     >
                       {getCellValue(item, column.key)}
                     </div>
@@ -365,7 +354,7 @@ export const VirtualizedList = ({
       {/* Context menu */}
       {contextMenu && (
         <div
-          className="context-menu fixed z-50 animate-fade-in"
+          className="context-menu fixed z-50"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -384,7 +373,7 @@ export const VirtualizedList = ({
             <button className="context-menu-item w-full">
               <FolderInput className="w-4 h-4" />
               Move to Category
-              <span className="ml-auto">▸</span>
+              <span className="ml-auto text-muted-foreground">▸</span>
             </button>
             <div className="absolute left-full top-0 hidden group-hover:block">
               <div className="context-menu ml-1">
@@ -400,6 +389,7 @@ export const VirtualizedList = ({
                       setContextMenu(null);
                     }}
                   >
+                    <span className="mr-2">{cat.emoji}</span>
                     {cat.name}
                   </button>
                 ))}

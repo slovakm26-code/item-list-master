@@ -14,15 +14,15 @@ export const getTimestamp = (): string => {
   return now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
 };
 
-// Default categories
+// Default categories with emoji
 const defaultCategories: Category[] = [
-  { id: 'all', name: 'All Items', parentId: null, orderIndex: 0, icon: 'folder' },
-  { id: 'movies', name: 'Movies', parentId: null, orderIndex: 1, icon: 'film' },
-  { id: 'series', name: 'Series', parentId: null, orderIndex: 2, icon: 'tv' },
-  { id: 'games', name: 'Games', parentId: null, orderIndex: 3, icon: 'gamepad-2' },
-  { id: 'music', name: 'Music', parentId: null, orderIndex: 4, icon: 'music' },
-  { id: 'books', name: 'E-books', parentId: null, orderIndex: 5, icon: 'book-open' },
-  { id: 'apps', name: 'Applications', parentId: null, orderIndex: 6, icon: 'app-window' },
+  { id: 'all', name: 'All Items', parentId: null, orderIndex: 0, emoji: '📁' },
+  { id: 'movies', name: 'Movies', parentId: null, orderIndex: 1, emoji: '🎬' },
+  { id: 'series', name: 'Series', parentId: null, orderIndex: 2, emoji: '📺' },
+  { id: 'games', name: 'Games', parentId: null, orderIndex: 3, emoji: '🎮' },
+  { id: 'music', name: 'Music', parentId: null, orderIndex: 4, emoji: '🎵' },
+  { id: 'books', name: 'E-books', parentId: null, orderIndex: 5, emoji: '📚' },
+  { id: 'apps', name: 'Applications', parentId: null, orderIndex: 6, emoji: '💻' },
 ];
 
 // Sample items for demo
@@ -74,7 +74,16 @@ export const initDatabase = (): AppState => {
   
   if (stored) {
     try {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      // Migrate old categories to add emoji if missing
+      const migratedCategories = parsed.categories.map((cat: Category) => {
+        if (!cat.emoji) {
+          const defaultCat = defaultCategories.find(d => d.id === cat.id);
+          return { ...cat, emoji: defaultCat?.emoji || '📁' };
+        }
+        return cat;
+      });
+      return { ...parsed, categories: migratedCategories };
     } catch {
       console.error('Failed to parse database, initializing with defaults');
     }
