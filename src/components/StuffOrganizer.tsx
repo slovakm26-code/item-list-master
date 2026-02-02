@@ -90,49 +90,13 @@ export const StuffOrganizer = () => {
     setItemDialogOpen(true);
   };
 
-  const handleSaveItem = async (
-    item: Omit<Item, 'id' | 'orderIndex' | 'addedDate'>, 
-    coverFile?: File
-  ) => {
-    // Generate ID for the new item
-    const newItemId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
-    let coverPath = item.coverPath;
-    
-    // Save cover image if provided and storage is connected
-    if (coverFile && fileSystemStorage.isConnected) {
-      try {
-        const filename = await fileSystemStorage.saveItemImage(coverFile, newItemId);
-        coverPath = `images/${filename}`;
-      } catch (error) {
-        console.error('Failed to save cover image:', error);
-        toast.error('Failed to save cover image');
-      }
-    }
-    
-    addItem({ ...item, coverPath });
+  const handleSaveItem = (item: Omit<Item, 'id' | 'orderIndex' | 'addedDate'>) => {
+    addItem(item);
     toast.success('Item added successfully');
   };
 
-  const handleUpdateItem = async (
-    id: string, 
-    updates: Partial<Item>, 
-    coverFile?: File
-  ) => {
-    let coverPath = updates.coverPath;
-    
-    // Save cover image if provided and storage is connected
-    if (coverFile && fileSystemStorage.isConnected) {
-      try {
-        const filename = await fileSystemStorage.saveItemImage(coverFile, id);
-        coverPath = `images/${filename}`;
-      } catch (error) {
-        console.error('Failed to save cover image:', error);
-        toast.error('Failed to save cover image');
-      }
-    }
-    
-    updateItem(id, { ...updates, coverPath });
+  const handleUpdateItem = (id: string, updates: Partial<Item>) => {
+    updateItem(id, updates);
     toast.success('Item updated successfully');
   };
 
@@ -276,7 +240,6 @@ export const StuffOrganizer = () => {
         defaultCategoryId={state.selectedCategoryId}
         onSave={handleSaveItem}
         onUpdate={handleUpdateItem}
-        isStorageConnected={fileSystemStorage.isConnected}
       />
 
       <BackupDialog
