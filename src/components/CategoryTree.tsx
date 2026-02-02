@@ -9,10 +9,19 @@ import {
   ArrowUp,
   ArrowDown,
   FolderPlus,
+  Folder,
+  Film,
+  Tv,
+  Gamepad2,
+  Music,
+  BookOpen,
+  Package,
+  type LucideIcon,
 } from 'lucide-react';
 import { Category } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,12 +37,24 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { IconPicker, getIconByName, emojiToIconMap } from './IconPicker';
+
+// Default icon mapping for built-in categories
+const defaultCategoryIcons: Record<string, LucideIcon> = {
+  all: Folder,
+  movies: Film,
+  series: Tv,
+  games: Gamepad2,
+  music: Music,
+  books: BookOpen,
+  apps: Package,
+};
 
 interface CategoryTreeProps {
   categories: Category[];
   selectedCategoryId: string | null;
   onSelectCategory: (categoryId: string) => void;
-  onAddCategory: (name: string, parentId: string | null) => void;
+  onAddCategory: (name: string, parentId: string | null, icon?: string) => void;
   onUpdateCategory: (id: string, updates: Partial<Category>) => void;
   onDeleteCategory: (id: string) => void;
   onMoveUp: (id: string) => void;
@@ -56,6 +77,23 @@ interface TreeNodeProps {
   onAddSubcategory: (parentId: string) => void;
   getCategoryItemCount: (categoryId: string) => number;
 }
+
+const getCategoryIcon = (category: Category): LucideIcon => {
+  // Check if category has a custom icon
+  if (category.icon) {
+    return getIconByName(category.icon);
+  }
+  // Check if there's an emoji that can be mapped
+  if (category.emoji && emojiToIconMap[category.emoji]) {
+    return getIconByName(emojiToIconMap[category.emoji]);
+  }
+  // Check for built-in category icons
+  if (defaultCategoryIcons[category.id]) {
+    return defaultCategoryIcons[category.id];
+  }
+  // Default to folder
+  return Folder;
+};
 
 const TreeNode = ({
   category,
@@ -80,6 +118,7 @@ const TreeNode = ({
   const isSelected = selectedCategoryId === category.id;
   const itemCount = getCategoryItemCount(category.id);
   const isProtected = category.id === 'all';
+  const CategoryIcon = getCategoryIcon(category);
 
   return (
     <div>
@@ -107,7 +146,7 @@ const TreeNode = ({
           ) : null}
         </button>
         
-        <span className="text-base shrink-0">{category.emoji || '📁'}</span>
+        <CategoryIcon className="w-4 h-4 text-muted-foreground shrink-0" />
         
         <span className="flex-1 truncate text-sm">{category.name}</span>
         
@@ -132,7 +171,7 @@ const TreeNode = ({
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onEdit(category)}>
                 <Pencil className="w-4 h-4 mr-2" />
-                Rename
+                Edit
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onMoveUp(category.id)}>
@@ -196,6 +235,7 @@ export const CategoryTree = ({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['all']));
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryIcon, setNewCategoryIcon] = useState('folder');
   const [addingToParent, setAddingToParent] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
 
@@ -217,8 +257,9 @@ export const CategoryTree = ({
 
   const handleAddCategory = () => {
     if (newCategoryName.trim()) {
-      onAddCategory(newCategoryName.trim(), addingToParent);
+      onAddCategory(newCategoryName.trim(), addingToParent, newCategoryIcon);
       setNewCategoryName('');
+      setNewCategoryIcon('folder');
       setShowAddDialog(false);
       setAddingToParent(null);
       if (addingToParent) {
@@ -229,16 +270,34 @@ export const CategoryTree = ({
 
   const handleEditSave = () => {
     if (editingCategory && newCategoryName.trim()) {
-      onUpdateCategory(editingCategory.id, { name: newCategoryName.trim() });
+      onUpdateCategory(editingCategory.id, { 
+        name: newCategoryName.trim(),
+        icon: newCategoryIcon,
+      });
       setEditingCategory(null);
       setNewCategoryName('');
+      setNewCategoryIcon('folder');
     }
   };
 
   const openAddSubcategory = (parentId: string) => {
     setAddingToParent(parentId);
     setNewCategoryName('');
+    setNewCategoryIcon('folder');
     setShowAddDialog(true);
+  };
+
+  const openEditDialog = (cat: Category) => {
+    setEditingCategory(cat);
+    setNewCategoryName(cat.name);
+    // Determine current icon
+    if (cat.icon) {
+      setNewCategoryIcon(cat.icon);
+    } else if (cat.emoji && emojiToIconMap[cat.emoji]) {
+      setNewCategoryIcon(emojiToIconMap[cat.emoji]);
+    } else {
+      setNewCategoryIcon('folder');
+    }
   };
 
   return (
@@ -252,6 +311,7 @@ export const CategoryTree = ({
           onClick={() => {
             setAddingToParent(null);
             setNewCategoryName('');
+            setNewCategoryIcon('folder');
             setShowAddDialog(true);
           }}
         >
@@ -270,10 +330,7 @@ export const CategoryTree = ({
             expandedIds={expandedIds}
             onToggleExpand={toggleExpand}
             onSelect={onSelectCategory}
-            onEdit={(cat) => {
-              setEditingCategory(cat);
-              setNewCategoryName(cat.name);
-            }}
+            onEdit={openEditDialog}
             onDelete={onDeleteCategory}
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
@@ -291,14 +348,21 @@ export const CategoryTree = ({
               {addingToParent ? 'Add Subcategory' : 'Add Category'}
             </DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <Input
-              placeholder="Category name"
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
-              autoFocus
-            />
+          <div className="py-4 space-y-4">
+            <div className="flex gap-3">
+              <IconPicker value={newCategoryIcon} onChange={setNewCategoryIcon} />
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="category-name">Name</Label>
+                <Input
+                  id="category-name"
+                  placeholder="Category name"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
+                  autoFocus
+                />
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddDialog(false)}>
@@ -313,16 +377,23 @@ export const CategoryTree = ({
       <Dialog open={!!editingCategory} onOpenChange={(open) => !open && setEditingCategory(null)}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
-            <DialogTitle>Rename Category</DialogTitle>
+            <DialogTitle>Edit Category</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <Input
-              placeholder="Category name"
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleEditSave()}
-              autoFocus
-            />
+          <div className="py-4 space-y-4">
+            <div className="flex gap-3">
+              <IconPicker value={newCategoryIcon} onChange={setNewCategoryIcon} />
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="edit-category-name">Name</Label>
+                <Input
+                  id="edit-category-name"
+                  placeholder="Category name"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleEditSave()}
+                  autoFocus
+                />
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingCategory(null)}>

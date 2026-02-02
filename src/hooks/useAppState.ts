@@ -11,7 +11,7 @@ export const useAppState = () => {
   }, [state]);
 
   // Categories operations
-  const addCategory = useCallback((name: string, parentId: string | null = null) => {
+  const addCategory = useCallback((name: string, parentId: string | null = null, icon: string = 'folder') => {
     const siblings = state.categories.filter(c => c.parentId === parentId);
     const maxOrder = Math.max(-1, ...siblings.map(c => c.orderIndex));
     
@@ -20,7 +20,7 @@ export const useAppState = () => {
       name,
       parentId,
       orderIndex: maxOrder + 1,
-      icon: 'folder',
+      icon,
     };
     
     setState(prev => ({

@@ -389,7 +389,6 @@ export const VirtualizedList = ({
                       setContextMenu(null);
                     }}
                   >
-                    <span className="mr-2">{cat.emoji}</span>
                     {cat.name}
                   </button>
                 ))}

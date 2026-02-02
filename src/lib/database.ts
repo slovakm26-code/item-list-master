@@ -14,15 +14,15 @@ export const getTimestamp = (): string => {
   return now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
 };
 
-// Default categories with emoji
+// Default categories with icons
 const defaultCategories: Category[] = [
-  { id: 'all', name: 'All Items', parentId: null, orderIndex: 0, emoji: '📁' },
-  { id: 'movies', name: 'Movies', parentId: null, orderIndex: 1, emoji: '🎬' },
-  { id: 'series', name: 'Series', parentId: null, orderIndex: 2, emoji: '📺' },
-  { id: 'games', name: 'Games', parentId: null, orderIndex: 3, emoji: '🎮' },
-  { id: 'music', name: 'Music', parentId: null, orderIndex: 4, emoji: '🎵' },
-  { id: 'books', name: 'E-books', parentId: null, orderIndex: 5, emoji: '📚' },
-  { id: 'apps', name: 'Applications', parentId: null, orderIndex: 6, emoji: '💻' },
+  { id: 'all', name: 'All Items', parentId: null, orderIndex: 0, icon: 'folder' },
+  { id: 'movies', name: 'Movies', parentId: null, orderIndex: 1, icon: 'film' },
+  { id: 'series', name: 'Series', parentId: null, orderIndex: 2, icon: 'tv' },
+  { id: 'games', name: 'Games', parentId: null, orderIndex: 3, icon: 'gamepad2' },
+  { id: 'music', name: 'Music', parentId: null, orderIndex: 4, icon: 'music' },
+  { id: 'books', name: 'E-books', parentId: null, orderIndex: 5, icon: 'book-open' },
+  { id: 'apps', name: 'Applications', parentId: null, orderIndex: 6, icon: 'package' },
 ];
 
 // Sample items for demo

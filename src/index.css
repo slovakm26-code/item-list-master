@@ -6,6 +6,68 @@
 
 @layer base {
   :root {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 90%;
+
+    --card: 0 0% 9%;
+    --card-foreground: 0 0% 90%;
+
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 90%;
+
+    --primary: 217 91% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 80%;
+
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 45%;
+
+    --accent: 217 91% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 40%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 0 0% 10%;
+    --input: 0 0% 12%;
+    --ring: 217 91% 55%;
+
+    --radius: 0.5rem;
+
+    /* Custom app variables */
+    --sidebar-width: 240px;
+    --toolbar-height: 48px;
+    --row-height: 32px;
+    --header-height: 32px;
+    --detail-height: 280px;
+
+    --sidebar-background: 0 0% 7%;
+    --sidebar-foreground: 0 0% 85%;
+    --sidebar-primary: 217 91% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 50% 15%;
+    --sidebar-accent-foreground: 217 91% 70%;
+    --sidebar-border: 0 0% 10%;
+    --sidebar-ring: 217 91% 55%;
+
+    --table-header: 0 0% 5%;
+    --table-row-hover: 0 0% 8%;
+    --table-row-selected: 217 50% 12%;
+    --table-row-alt: 0 0% 5%;
+
+    --resizer: 0 0% 15%;
+    --resizer-active: 217 91% 55%;
+  }
+
+  .light {
     --background: 0 0% 98%;
     --foreground: 0 0% 10%;
 
@@ -40,15 +102,6 @@
     --input: 0 0% 90%;
     --ring: 217 91% 50%;
 
-    --radius: 0.25rem;
-
-    /* Custom app variables */
-    --sidebar-width: 240px;
-    --toolbar-height: 48px;
-    --row-height: 32px;
-    --header-height: 32px;
-    --detail-height: 280px;
-
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 0 0% 20%;
     --sidebar-primary: 217 91% 50%;
@@ -65,59 +118,6 @@
 
     --resizer: 0 0% 85%;
     --resizer-active: 217 91% 50%;
-  }
-
-  .dark {
-    --background: 0 0% 4%;
-    --foreground: 0 0% 90%;
-
-    --card: 0 0% 8%;
-    --card-foreground: 0 0% 90%;
-
-    --popover: 0 0% 8%;
-    --popover-foreground: 0 0% 90%;
-
-    --primary: 217 91% 55%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 0 0% 12%;
-    --secondary-foreground: 0 0% 80%;
-
-    --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 55%;
-
-    --accent: 217 91% 15%;
-    --accent-foreground: 217 91% 70%;
-
-    --destructive: 0 62% 50%;
-    --destructive-foreground: 0 0% 100%;
-
-    --success: 142 71% 40%;
-    --success-foreground: 0 0% 100%;
-
-    --warning: 38 92% 45%;
-    --warning-foreground: 0 0% 100%;
-
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
-    --ring: 217 91% 55%;
-
-    --sidebar-background: 0 0% 6%;
-    --sidebar-foreground: 0 0% 85%;
-    --sidebar-primary: 217 91% 55%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 91% 12%;
-    --sidebar-accent-foreground: 217 91% 70%;
-    --sidebar-border: 0 0% 15%;
-    --sidebar-ring: 217 91% 55%;
-
-    --table-header: 0 0% 6%;
-    --table-row-hover: 0 0% 10%;
-    --table-row-selected: 217 50% 15%;
-    --table-row-alt: 0 0% 5%;
-
-    --resizer: 0 0% 20%;
-    --resizer-active: 217 91% 55%;
   }
 }
 
@@ -168,7 +168,7 @@
   }
 
   .app-sidebar {
-    @apply w-[var(--sidebar-width)] flex flex-col border-r bg-sidebar;
+    @apply w-[var(--sidebar-width)] flex flex-col border-r bg-sidebar rounded-tr-lg;
   }
 
   .app-content {
@@ -176,8 +176,8 @@
   }
 
   .app-detail {
-    @apply flex flex-col border-t bg-card overflow-hidden;
-    min-height: 100px;
+    @apply flex flex-col border-t bg-card overflow-hidden rounded-t-lg;
+    min-height: 40px;
   }
 
   .app-detail-content {
@@ -185,7 +185,7 @@
   }
 
   .tree-item {
-    @apply flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors;
+    @apply flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors rounded-md mx-2;
   }
 
   .tree-item:hover {
@@ -193,9 +193,10 @@
   }
 
   .tree-item.active {
-    @apply bg-accent text-accent-foreground;
+    @apply bg-accent/10 text-accent-foreground;
     border-left: 3px solid hsl(var(--primary));
     padding-left: 9px;
+    border-radius: 0 6px 6px 0;
   }
 
   .list-header {
@@ -203,11 +204,11 @@
   }
 
   .list-row {
-    @apply h-[var(--row-height)] flex items-center text-sm cursor-pointer transition-colors border-b border-border/30;
+    @apply h-[var(--row-height)] flex items-center text-sm cursor-pointer transition-colors;
   }
 
   .list-row:hover {
-    @apply bg-muted/50;
+    @apply bg-muted/30;
   }
 
   .list-row.selected {
@@ -215,7 +216,7 @@
   }
 
   .resizer {
-    @apply w-px cursor-col-resize bg-border/50 hover:bg-primary transition-colors;
+    @apply w-px cursor-col-resize bg-transparent hover:bg-primary/50 transition-colors;
   }
 
   .resizer:active {
@@ -223,7 +224,7 @@
   }
 
   .resizer-horizontal {
-    @apply h-1 cursor-row-resize bg-transparent hover:bg-primary/50 transition-colors flex items-center justify-center;
+    @apply h-1 cursor-row-resize bg-transparent hover:bg-primary/30 transition-colors flex items-center justify-center;
   }
 
   .resizer-horizontal:active {
@@ -231,14 +232,12 @@
   }
 
   .cover-container {
-    @apply aspect-[2/3] bg-muted overflow-hidden;
-    border-radius: 2px;
+    @apply aspect-[2/3] bg-muted overflow-hidden rounded-md;
   }
 
   .toolbar-btn {
-    @apply inline-flex items-center justify-center gap-2 px-3 h-8 text-sm font-medium transition-colors;
+    @apply inline-flex items-center justify-center gap-2 px-3 h-8 text-sm font-medium transition-colors rounded-md;
     @apply bg-transparent text-foreground hover:bg-muted;
-    border-radius: 2px;
   }
 
   .toolbar-btn-primary {
@@ -246,13 +245,12 @@
   }
 
   .context-menu {
-    @apply bg-popover border py-1 min-w-[180px];
-    border-radius: 4px;
-    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.2);
+    @apply bg-popover border py-1 min-w-[180px] rounded-lg;
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.3);
   }
 
   .context-menu-item {
-    @apply flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer transition-colors;
+    @apply flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer transition-colors rounded-md mx-1;
     @apply hover:bg-muted;
   }
 
