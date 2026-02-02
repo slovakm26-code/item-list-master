@@ -15,8 +15,9 @@
     --popover: 0 0% 7%;
     --popover-foreground: 0 0% 90%;
 
-    --primary: 217 91% 55%;
-    --primary-foreground: 0 0% 100%;
+    /* White accent color */
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 4%;
 
     --secondary: 0 0% 10%;
     --secondary-foreground: 0 0% 80%;
@@ -24,8 +25,9 @@
     --muted: 0 0% 10%;
     --muted-foreground: 0 0% 45%;
 
-    --accent: 217 91% 55%;
-    --accent-foreground: 0 0% 100%;
+    /* White accent */
+    --accent: 0 0% 100%;
+    --accent-foreground: 0 0% 4%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
@@ -34,11 +36,11 @@
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning-foreground: 0 0% 10%;
 
     --border: 0 0% 10%;
     --input: 0 0% 12%;
-    --ring: 217 91% 55%;
+    --ring: 0 0% 50%;
 
     --radius: 0.5rem;
 
@@ -51,20 +53,20 @@
 
     --sidebar-background: 0 0% 7%;
     --sidebar-foreground: 0 0% 85%;
-    --sidebar-primary: 217 91% 55%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 50% 15%;
-    --sidebar-accent-foreground: 217 91% 70%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 0 0% 4%;
+    --sidebar-accent: 0 0% 12%;
+    --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 0 0% 10%;
-    --sidebar-ring: 217 91% 55%;
+    --sidebar-ring: 0 0% 50%;
 
     --table-header: 0 0% 5%;
     --table-row-hover: 0 0% 8%;
-    --table-row-selected: 217 50% 12%;
+    --table-row-selected: 0 0% 12%;
     --table-row-alt: 0 0% 5%;
 
     --resizer: 0 0% 15%;
-    --resizer-active: 217 91% 55%;
+    --resizer-active: 0 0% 80%;
   }
 
   .light {
@@ -77,7 +79,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 10%;
 
-    --primary: 217 91% 50%;
+    /* Dark accent for light mode */
+    --primary: 0 0% 10%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 94%;
@@ -86,8 +89,8 @@
     --muted: 0 0% 94%;
     --muted-foreground: 0 0% 45%;
 
-    --accent: 217 91% 95%;
-    --accent-foreground: 217 91% 40%;
+    --accent: 0 0% 10%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
@@ -96,28 +99,28 @@
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning-foreground: 0 0% 10%;
 
     --border: 0 0% 90%;
     --input: 0 0% 90%;
-    --ring: 217 91% 50%;
+    --ring: 0 0% 50%;
 
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 0 0% 20%;
-    --sidebar-primary: 217 91% 50%;
+    --sidebar-primary: 0 0% 10%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 91% 95%;
-    --sidebar-accent-foreground: 217 91% 40%;
+    --sidebar-accent: 0 0% 95%;
+    --sidebar-accent-foreground: 0 0% 10%;
     --sidebar-border: 0 0% 90%;
-    --sidebar-ring: 217 91% 50%;
+    --sidebar-ring: 0 0% 50%;
 
     --table-header: 0 0% 98%;
     --table-row-hover: 0 0% 96%;
-    --table-row-selected: 217 91% 95%;
+    --table-row-selected: 0 0% 92%;
     --table-row-alt: 0 0% 99%;
 
     --resizer: 0 0% 85%;
-    --resizer-active: 217 91% 50%;
+    --resizer-active: 0 0% 30%;
   }
 }
 
@@ -185,17 +188,18 @@
   }
 
   .tree-item {
-    @apply flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors rounded-md mx-2;
+    @apply flex items-center gap-2 px-3 py-2 cursor-pointer transition-all duration-150 rounded-md mx-2;
   }
 
   .tree-item:hover {
-    @apply bg-muted/50;
+    background: hsla(0, 0%, 100%, 0.03);
   }
 
   .tree-item.active {
-    @apply bg-accent/10 text-accent-foreground;
-    border-left: 3px solid hsl(var(--primary));
-    padding-left: 9px;
+    background: hsla(0, 0%, 100%, 0.05);
+    color: hsl(0, 0%, 100%);
+    border-left: 2px solid hsl(0, 0%, 100%);
+    padding-left: 10px;
     border-radius: 0 6px 6px 0;
   }
 
@@ -204,15 +208,16 @@
   }
 
   .list-row {
-    @apply h-[var(--row-height)] flex items-center text-sm cursor-pointer transition-colors;
+    @apply h-[var(--row-height)] flex items-center text-sm cursor-pointer transition-all duration-150;
   }
 
   .list-row:hover {
-    @apply bg-muted/30;
+    background: hsla(0, 0%, 100%, 0.03);
   }
 
   .list-row.selected {
-    @apply bg-[hsl(var(--table-row-selected))];
+    background: hsla(0, 0%, 100%, 0.05);
+    color: hsl(0, 0%, 100%);
   }
 
   .resizer {

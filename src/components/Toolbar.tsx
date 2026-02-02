@@ -1,4 +1,5 @@
-import { Plus, Download, Upload, Database, Moon, Sun, Archive } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Download, Upload, Database, Moon, Sun, Archive, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -9,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useTheme } from '@/hooks/useTheme';
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface ToolbarProps {
   searchQuery: string;
@@ -30,6 +32,18 @@ export const Toolbar = ({
   onManageBackups,
 }: ToolbarProps) => {
   const { theme, toggleTheme } = useTheme();
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+  const debouncedSearch = useDebounce(localSearch, 300);
+
+  // Update parent when debounced value changes
+  useEffect(() => {
+    onSearchChange(debouncedSearch);
+  }, [debouncedSearch, onSearchChange]);
+
+  // Sync local state with external changes
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
 
   return (
     <div className="app-toolbar">
@@ -73,12 +87,13 @@ export const Toolbar = ({
       <div className="flex-1" />
 
       <div className="relative w-56">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
         <Input
           type="text"
           placeholder="Search..."
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="h-8 text-sm"
+          value={localSearch}
+          onChange={(e) => setLocalSearch(e.target.value)}
+          className="h-8 text-sm pl-8"
         />
       </div>
 
