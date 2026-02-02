@@ -3,7 +3,7 @@ import { AppState, Item, Category } from '@/types';
 /**
  * Storage Adapter Interface
  * Abstraction layer for different storage backends (localStorage, IndexedDB, SQLite)
- * This allows easy migration to Electron/SQLite in the future
+ * Optimized for handling millions of items with FTS5, batch operations, and pagination
  */
 export interface StorageAdapter {
   // Initialization
@@ -22,18 +22,29 @@ export interface StorageAdapter {
   updateItem(id: string, updates: Partial<Item>): Promise<void>;
   deleteItems(ids: string[]): Promise<void>;
   
+  // Batch operations (critical for performance with large imports)
+  addItems?(items: Item[], onProgress?: (count: number) => void): Promise<void>;
+  
   // Category operations
   getCategories(): Promise<Category[]>;
   addCategory(category: Category): Promise<void>;
   updateCategory(id: string, updates: Partial<Category>): Promise<void>;
   deleteCategory(id: string): Promise<void>;
   
-  // Search (optimized for large datasets)
+  // Search (FTS5 optimized for large datasets)
   searchItems(query: string, categoryId?: string): Promise<Item[]>;
+  fullTextSearch?(query: string, options?: FTSOptions): Promise<Item[]>;
   
   // Backup operations
   exportData(): Promise<ExportData>;
-  importData(data: ExportData): Promise<void>;
+  importData(data: ExportData, onProgress?: (count: number) => void): Promise<void>;
+  
+  // Database maintenance
+  vacuum?(): Promise<void>;
+  optimize?(): Promise<void>;
+  
+  // Statistics
+  getStatistics?(): Promise<DatabaseStatistics>;
   
   // Storage info
   getStorageInfo(): Promise<StorageInfo>;
@@ -46,6 +57,16 @@ export interface QueryOptions {
   sortColumn?: keyof Item;
   sortDirection?: 'asc' | 'desc';
   searchQuery?: string;
+  // FTS5 full-text search
+  useFTS?: boolean;
+}
+
+export interface FTSOptions {
+  categoryId?: string;
+  limit?: number;
+  offset?: number;
+  // FTS5 match mode: 'prefix' for autocomplete, 'phrase' for exact
+  matchMode?: 'prefix' | 'phrase' | 'any';
 }
 
 export interface ExportData {
@@ -62,6 +83,18 @@ export interface StorageInfo {
   maxBytes: number;
   itemCount: number;
   supportsLargeDatasets: boolean;
+  // SQLite specific info
+  walMode?: boolean;
+  ftsEnabled?: boolean;
+}
+
+export interface DatabaseStatistics {
+  totalItems: number;
+  totalCategories: number;
+  databaseSizeBytes: number;
+  itemsPerCategory: Record<string, number>;
+  averageRating: number | null;
+  itemsByYear: Record<number, number>;
 }
 
 // Storage type detection for future Electron
