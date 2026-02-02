@@ -203,6 +203,30 @@ export const saveImage = async (
   }
 };
 
+// Save image blob to /images/ folder (for import with embedded images)
+export const saveImageBlob = async (
+  handle: FileSystemDirectoryHandle,
+  imageBlob: Blob,
+  itemId: string,
+  extension: string = 'jpg'
+): Promise<string> => {
+  try {
+    const imagesHandle = await handle.getDirectoryHandle(IMAGES_FOLDER, { create: true });
+    
+    const filename = `${itemId}.${extension}`;
+    
+    const fileHandle = await imagesHandle.getFileHandle(filename, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(imageBlob);
+    await writable.close();
+    
+    return filename;
+  } catch (error) {
+    console.error('Failed to save image blob:', error);
+    throw error;
+  }
+};
+
 // Load image from /images/ folder
 export const loadImage = async (
   handle: FileSystemDirectoryHandle,

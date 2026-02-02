@@ -48,6 +48,7 @@ export interface DatabaseExport {
   exportDate: string;
   categories: Category[];
   items: Item[];
+  images?: Record<string, string>; // itemId -> base64 image data
 }
 
 export type SortableColumn = 'name' | 'year' | 'rating' | 'addedDate' | 'path';

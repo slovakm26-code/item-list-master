@@ -6,6 +6,7 @@ import {
   saveToFileSystem,
   loadFromFileSystem,
   saveImage,
+  saveImageBlob,
   loadImage,
   clearDirectoryHandle,
 } from '@/lib/fileSystemStorage';
@@ -15,11 +16,13 @@ interface UseFileSystemStorageReturn {
   isSupported: boolean;
   isConnected: boolean;
   directoryName: string | null;
+  directoryHandle: FileSystemDirectoryHandle | null;
   connect: () => Promise<boolean>;
   disconnect: () => Promise<void>;
   save: (state: AppState) => Promise<void>;
   load: () => Promise<{ categories: AppState['categories']; items: AppState['items'] } | null>;
   saveItemImage: (imageFile: File, itemId: string) => Promise<string>;
+  saveItemImageBlob: (imageBlob: Blob, itemId: string, extension: string) => Promise<string>;
   loadItemImage: (filename: string) => Promise<string | null>;
 }
 
@@ -80,6 +83,13 @@ export const useFileSystemStorage = (): UseFileSystemStorageReturn => {
     return saveImage(handle, imageFile, itemId);
   }, [handle]);
 
+  const saveItemImageBlob = useCallback(async (imageBlob: Blob, itemId: string, extension: string): Promise<string> => {
+    if (!handle) {
+      throw new Error('No directory connected');
+    }
+    return saveImageBlob(handle, imageBlob, itemId, extension);
+  }, [handle]);
+
   const loadItemImage = useCallback(async (filename: string): Promise<string | null> => {
     if (!handle) return null;
     return loadImage(handle, filename);
@@ -89,11 +99,13 @@ export const useFileSystemStorage = (): UseFileSystemStorageReturn => {
     isSupported,
     isConnected: handle !== null,
     directoryName,
+    directoryHandle: handle,
     connect,
     disconnect,
     save,
     load,
     saveItemImage,
+    saveItemImageBlob,
     loadItemImage,
   };
 };
