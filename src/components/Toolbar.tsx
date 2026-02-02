@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Download, Upload, Database, Moon, Sun, Archive, Search } from 'lucide-react';
+import { Plus, Download, Upload, Database, Moon, Sun, Archive, Search, HardDrive, FileUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -20,6 +20,9 @@ interface ToolbarProps {
   onImport: () => void;
   onBackup: () => void;
   onManageBackups: () => void;
+  onOpenStorage: () => void;
+  onOpenSQLiteImport: () => void;
+  isStorageConnected?: boolean;
 }
 
 export const Toolbar = ({
@@ -30,6 +33,9 @@ export const Toolbar = ({
   onImport,
   onBackup,
   onManageBackups,
+  onOpenStorage,
+  onOpenSQLiteImport,
+  isStorageConnected = false,
 }: ToolbarProps) => {
   const { theme, toggleTheme } = useTheme();
   const [localSearch, setLocalSearch] = useState(searchQuery);
@@ -66,11 +72,16 @@ export const Toolbar = ({
         <DropdownMenuContent align="start">
           <DropdownMenuItem onClick={onExport}>
             <Download className="w-4 h-4 mr-2" />
-            Export
+            Export JSON
           </DropdownMenuItem>
           <DropdownMenuItem onClick={onImport}>
             <Upload className="w-4 h-4 mr-2" />
-            Import
+            Import JSON
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onOpenSQLiteImport}>
+            <FileUp className="w-4 h-4 mr-2" />
+            Import SQLite
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onBackup}>
@@ -83,6 +94,23 @@ export const Toolbar = ({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        className="gap-1.5 h-8"
+        onClick={onOpenStorage}
+      >
+        <HardDrive className="w-4 h-4" />
+        {isStorageConnected ? (
+          <span className="flex items-center gap-1.5">
+            Storage
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+          </span>
+        ) : (
+          'Storage'
+        )}
+      </Button>
 
       <div className="flex-1" />
 
