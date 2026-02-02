@@ -119,31 +119,159 @@ app.on('window-all-closed', () => {
 });
 ```
 
-## 3. Preload Script (electron/preload.ts)
+## 3. Image Storage IPC Handlers (electron/main.ts)
+
+Pridaj tieto handlery pre ukladanie obrázkov ako súbory na disk:
+
+```typescript
+import sharp from 'sharp'; // npm install sharp - pre thumbnaily
+
+// Adresáre pre obrázky
+const imagesDir = path.join(app.getPath('userData'), 'images');
+const thumbnailsDir = path.join(app.getPath('userData'), 'thumbnails');
+
+// Vytvor adresáre ak neexistujú
+function ensureImageDirs() {
+  if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
+  if (!fs.existsSync(thumbnailsDir)) fs.mkdirSync(thumbnailsDir, { recursive: true });
+}
+
+function setupImageIpcHandlers() {
+  ensureImageDirs();
+
+  // Uložiť obrázok
+  ipcMain.handle('images:save', async (_, itemId: string, data: ArrayBuffer, ext: string) => {
+    const fileName = `${itemId}.${ext}`;
+    const filePath = path.join(imagesDir, fileName);
+    fs.writeFileSync(filePath, Buffer.from(data));
+    return filePath;
+  });
+
+  // Načítať obrázok
+  ipcMain.handle('images:load', async (_, filePath: string) => {
+    try {
+      if (!fs.existsSync(filePath)) return null;
+      const buffer = fs.readFileSync(filePath);
+      return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    } catch {
+      return null;
+    }
+  });
+
+  // Zmazať obrázok
+  ipcMain.handle('images:delete', async (_, filePath: string) => {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        // Zmaž aj thumbnail
+        const thumbPath = filePath.replace(imagesDir, thumbnailsDir);
+        if (fs.existsSync(thumbPath)) fs.unlinkSync(thumbPath);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  // Získať cestu k obrázku
+  ipcMain.handle('images:getPath', async (_, itemId: string) => {
+    const extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    for (const ext of extensions) {
+      const filePath = path.join(imagesDir, `${itemId}.${ext}`);
+      if (fs.existsSync(filePath)) return filePath;
+    }
+    return null;
+  });
+
+  // Získať cestu k thumbnailu
+  ipcMain.handle('images:getThumbnailPath', async (_, itemId: string) => {
+    const extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    for (const ext of extensions) {
+      const filePath = path.join(thumbnailsDir, `${itemId}.${ext}`);
+      if (fs.existsSync(filePath)) return filePath;
+    }
+    return null;
+  });
+
+  // Vytvoriť thumbnail (vyžaduje sharp)
+  ipcMain.handle('images:createThumbnail', async (_, sourcePath: string, itemId: string, maxWidth: number, maxHeight: number) => {
+    try {
+      const ext = path.extname(sourcePath).slice(1) || 'jpg';
+      const thumbPath = path.join(thumbnailsDir, `${itemId}.${ext}`);
+      
+      await sharp(sourcePath)
+        .resize(maxWidth, maxHeight, { fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 80 })
+        .toFile(thumbPath);
+      
+      return thumbPath;
+    } catch (error) {
+      console.error('Thumbnail creation failed:', error);
+      return null;
+    }
+  });
+}
+
+// Zavolaj v app.whenReady()
+app.whenReady().then(() => {
+  initDatabase();
+  setupIpcHandlers();
+  setupImageIpcHandlers(); // ← Pridané
+  // ...
+});
+```
+
+## 4. Preload Script (electron/preload.ts)
 
 ```typescript
 import { contextBridge, ipcRenderer } from 'electron';
 
-// Exponuj SQLite API do renderer procesu
+// SQLite API
 contextBridge.exposeInMainWorld('electronSQLite', {
   query: (sql: string, params?: any[]) => 
     ipcRenderer.invoke('sqlite:query', sql, params),
-  
   run: (sql: string, params?: any[]) => 
     ipcRenderer.invoke('sqlite:run', sql, params),
-  
   exec: (sql: string) => 
     ipcRenderer.invoke('sqlite:exec', sql),
-  
   getInfo: () => 
     ipcRenderer.invoke('sqlite:getInfo'),
 });
 
-// Označ, že SQLite je dostupné
+// Image Storage API
+contextBridge.exposeInMainWorld('electronImages', {
+  saveImage: (itemId: string, data: ArrayBuffer, extension: string) =>
+    ipcRenderer.invoke('images:save', itemId, data, extension),
+  loadImage: (filePath: string) =>
+    ipcRenderer.invoke('images:load', filePath),
+  deleteImage: (filePath: string) =>
+    ipcRenderer.invoke('images:delete', filePath),
+  getImagePath: (itemId: string) =>
+    ipcRenderer.invoke('images:getPath', itemId),
+  getThumbnailPath: (itemId: string) =>
+    ipcRenderer.invoke('images:getThumbnailPath', itemId),
+  createThumbnail: (sourcePath: string, itemId: string, maxWidth: number, maxHeight: number) =>
+    ipcRenderer.invoke('images:createThumbnail', sourcePath, itemId, maxWidth, maxHeight),
+});
+
 contextBridge.exposeInMainWorld('isElectron', true);
 ```
 
-## 4. Aktualizuj storage/index.ts
+## 5. Použitie LazyImage komponenty
+
+```tsx
+import { LazyImage } from '@/components/LazyImage';
+import { filePathToUrl } from '@/lib/storage/ElectronImageStorage';
+
+// V zozname položiek
+<LazyImage
+  src={filePathToUrl(item.coverPath)}
+  alt={item.name}
+  className="w-12 h-16 rounded"
+/>
+```
+
+## 6. Aktualizuj storage/index.ts
 
 ```typescript
 import { StorageAdapter, detectStorageType } from './StorageAdapter';
@@ -169,7 +297,7 @@ export const createStorageAdapter = (): StorageAdapter => {
 };
 ```
 
-## 5. Migrácia existujúcich dát
+## 7. Migrácia existujúcich dát
 
 Pri prvom spustení Electron verzie môžeš migrovať dáta z localStorage/IndexedDB:
 
@@ -193,18 +321,21 @@ const migrateFromWeb = async () => {
 };
 ```
 
-## 6. Štruktúra projektu
+## 8. Štruktúra projektu
 
 ```
 stuff-organizer-electron/
 ├── electron/
-│   ├── main.ts          # Main process s SQLite
+│   ├── main.ts          # Main process s SQLite + Image Storage
 │   └── preload.ts       # IPC bridge
 ├── src/
+│   ├── components/
+│   │   └── LazyImage.tsx     # ← Lazy loading komponent
 │   ├── lib/
 │   │   └── storage/
 │   │       ├── StorageAdapter.ts
-│   │       ├── SQLiteAdapter.ts    # ← Toto už máš
+│   │       ├── SQLiteAdapter.ts
+│   │       ├── ElectronImageStorage.ts  # ← Image storage utilities
 │   │       ├── IndexedDBAdapter.ts
 │   │       └── index.ts
 │   └── ... (zvyšok React aplikácie)
@@ -212,7 +343,7 @@ stuff-organizer-electron/
 └── electron-builder.json
 ```
 
-## 7. Build pre distribúciu
+## 9. Build pre distribúciu
 
 ```json
 // electron-builder.json
@@ -239,6 +370,10 @@ stuff-organizer-electron/
 ```
 
 ```bash
+# Dependencies pre Electron
+npm install better-sqlite3 sharp
+npm install -D @types/better-sqlite3 electron electron-builder
+
 # Build
 npm run build
 npx electron-builder
@@ -246,9 +381,12 @@ npx electron-builder
 
 ## Výkon
 
-SQLite s better-sqlite3 zvládne:
+SQLite s better-sqlite3 + file-based images zvládne:
 - **Milióny položiek** bez problémov
+- **Milióny obrázkov** - uložené ako súbory, nie v DB
 - **< 10ms** query čas aj s 1M riadkov (s indexami)
+- **Lazy loading** - len viditeľné obrázky sa načítajú
+- **Thumbnaily** - malé preview pre rýchle zobrazenie
 - **Atomické transakcie** - žiadna strata dát
 - **WAL mode** - rýchle súbežné čítanie/zápis
 
@@ -271,4 +409,13 @@ SQLite s better-sqlite3 zvládne:
 3. **Vacuum** - občas zmenši databázu:
    ```typescript
    await sqlite.exec('VACUUM');
+   ```
+
+4. **Image preloading** - načítaj obrázky dopredu pri scrollovaní:
+   ```typescript
+   import { preloadImages } from '@/lib/storage/ElectronImageStorage';
+   
+   // Načítaj ďalších 20 obrázkov
+   const nextPaths = visibleItems.slice(0, 20).map(i => i.coverPath);
+   preloadImages(nextPaths);
    ```
