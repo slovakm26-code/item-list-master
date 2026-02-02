@@ -235,103 +235,121 @@ export const DetailPanel = ({
                 <div className="h-px bg-border my-3" />
 
                 {/* Description */}
-                <div className="flex-1 min-h-0">
-                  {isEditing ? (
-                    <Textarea
-                      value={editData.description || ''}
-                      onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))}
-                      rows={4}
-                      className="resize-none"
-                      placeholder="Description..."
-                    />
-                  ) : (
-                    <p className="text-sm text-foreground leading-relaxed line-clamp-4">
-                      {item.description || 'No description available.'}
-                    </p>
-                  )}
-                </div>
+                {(isEditing || item.description) && (
+                  <div className="flex-1 min-h-0">
+                    {isEditing ? (
+                      <Textarea
+                        value={editData.description || ''}
+                        onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))}
+                        rows={4}
+                        className="resize-none"
+                        placeholder="Description..."
+                      />
+                    ) : (
+                      <p className="text-sm text-foreground leading-relaxed line-clamp-4">
+                        {item.description}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Meta info - bottom */}
-                <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-                  {isEditing ? (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <span>Year:</span>
-                        <Input
-                          type="number"
-                          value={editData.year || ''}
-                          onChange={(e) => setEditData(prev => ({ ...prev, year: parseInt(e.target.value) || null }))}
-                          className="h-7 w-20"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span>Genres:</span>
-                        <Input
-                          value={(editData.genres || []).join(', ')}
-                          onChange={(e) => setEditData(prev => ({ 
-                            ...prev, 
-                            genres: e.target.value.split(',').map(g => g.trim()).filter(Boolean)
-                          }))}
-                          placeholder="Comma-separated"
-                          className="h-7 w-40"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span>Category:</span>
-                        <Select
-                          value={editData.categoryId}
-                          onValueChange={(value) => setEditData(prev => ({ ...prev, categoryId: value }))}
-                        >
-                          <SelectTrigger className="h-7 w-32">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {movableCategories.map(cat => {
-                              const Icon = getCategoryIcon(cat);
-                              return (
-                                <SelectItem key={cat.id} value={cat.id}>
-                                  <div className="flex items-center gap-2">
-                                    <Icon className="w-3.5 h-3.5 text-muted-foreground" />
-                                    {cat.name}
-                                  </div>
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <span>Year: <span className="text-foreground">{item.year || '-'}</span></span>
-                      <span>•</span>
-                      <span>Genre: <span className="text-foreground">{item.genres.join(', ') || '-'}</span></span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1">
-                        {CategoryIcon && <CategoryIcon className="w-3.5 h-3.5" />}
-                        {category?.name || 'Unknown'}
-                      </span>
-                    </>
-                  )}
-                </div>
+                {(isEditing || item.year || item.genres.length > 0 || category) && (
+                  <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+                    {isEditing ? (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <span>Year:</span>
+                          <Input
+                            type="number"
+                            value={editData.year || ''}
+                            onChange={(e) => setEditData(prev => ({ ...prev, year: parseInt(e.target.value) || null }))}
+                            className="h-7 w-20"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span>Genres:</span>
+                          <Input
+                            value={(editData.genres || []).join(', ')}
+                            onChange={(e) => setEditData(prev => ({ 
+                              ...prev, 
+                              genres: e.target.value.split(',').map(g => g.trim()).filter(Boolean)
+                            }))}
+                            placeholder="Comma-separated"
+                            className="h-7 w-40"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span>Category:</span>
+                          <Select
+                            value={editData.categoryId}
+                            onValueChange={(value) => setEditData(prev => ({ ...prev, categoryId: value }))}
+                          >
+                            <SelectTrigger className="h-7 w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {movableCategories.map(cat => {
+                                const Icon = getCategoryIcon(cat);
+                                return (
+                                  <SelectItem key={cat.id} value={cat.id}>
+                                    <div className="flex items-center gap-2">
+                                      <Icon className="w-3.5 h-3.5 text-muted-foreground" />
+                                      {cat.name}
+                                    </div>
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {item.year && (
+                          <>
+                            <span>Year: <span className="text-foreground">{item.year}</span></span>
+                            {(item.genres.length > 0 || category) && <span>•</span>}
+                          </>
+                        )}
+                        {item.genres.length > 0 && (
+                          <>
+                            <span>Genre: <span className="text-foreground">{item.genres.join(', ')}</span></span>
+                            {category && <span>•</span>}
+                          </>
+                        )}
+                        {category && (
+                          <span className="flex items-center gap-1">
+                            {CategoryIcon && <CategoryIcon className="w-3.5 h-3.5" />}
+                            {category.name}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {/* Path and Added date */}
-                <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                  {isEditing ? (
-                    <div className="flex items-center gap-2">
-                      <span>Path:</span>
-                      <Input
-                        value={editData.path || ''}
-                        onChange={(e) => setEditData(prev => ({ ...prev, path: e.target.value }))}
-                        className="h-7 flex-1"
-                      />
-                    </div>
-                  ) : (
-                    <>
-                      <p className="truncate">Path: <span className="text-foreground/70">{item.path || '-'}</span></p>
-                      <p>Added: <span className="text-foreground/70">{formatDate(item.addedDate)}</span></p>
-                    </>
-                  )}
+                {(isEditing || item.path) && (
+                  <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                    {isEditing ? (
+                      <div className="flex items-center gap-2">
+                        <span>Path:</span>
+                        <Input
+                          value={editData.path || ''}
+                          onChange={(e) => setEditData(prev => ({ ...prev, path: e.target.value }))}
+                          className="h-7 flex-1"
+                        />
+                      </div>
+                    ) : (
+                      <p className="truncate">Path: <span className="text-foreground/70">{item.path}</span></p>
+                    )}
+                  </div>
+                )}
+                
+                {/* Added date - always show */}
+                <div className="mt-2 text-sm text-muted-foreground">
+                  <p>Added: <span className="text-foreground/70">{formatDate(item.addedDate)}</span></p>
                 </div>
               </div>
             </div>
