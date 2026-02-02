@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Save, X, Star, Calendar, Folder, Film, ChevronUp, ChevronDown, GripHorizontal } from 'lucide-react';
+import { Pencil, Save, X, Star, ChevronUp, ChevronDown, GripHorizontal, Film } from 'lucide-react';
 import { Item, Category } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { getIconByName, emojiToIconMap } from './IconPicker';
 
 interface DetailPanelProps {
   item: Item | null;
@@ -72,8 +73,6 @@ export const DetailPanel = ({
       day: '2-digit', 
       month: '2-digit', 
       year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
     });
   };
 
@@ -100,6 +99,14 @@ export const DetailPanel = ({
 
   const movableCategories = categories.filter(c => c.id !== 'all');
   const category = item ? categories.find(c => c.id === item.categoryId) : null;
+
+  const getCategoryIcon = (cat: Category) => {
+    if (cat.icon) return getIconByName(cat.icon);
+    if (cat.emoji && emojiToIconMap[cat.emoji]) return getIconByName(emojiToIconMap[cat.emoji]);
+    return getIconByName('folder');
+  };
+
+  const CategoryIcon = category ? getCategoryIcon(category) : null;
 
   return (
     <div className="app-detail" style={{ height: visible ? height : 40 }}>
@@ -169,8 +176,8 @@ export const DetailPanel = ({
               </div>
             </div>
           ) : (
-            <div className="flex gap-8">
-              {/* Cover Image */}
+            <div className="flex gap-6">
+              {/* Cover Image - Left side */}
               <div className="shrink-0">
                 <div className="cover-container w-32">
                   {item.coverPath ? (
@@ -187,43 +194,23 @@ export const DetailPanel = ({
                 </div>
               </div>
 
-              {/* Info */}
-              <div className="flex-1 min-w-0 space-y-4">
-                {/* Title */}
-                <div>
+              {/* Info Section - Right side */}
+              <div className="flex-1 min-w-0 flex flex-col">
+                {/* Title + Rating row */}
+                <div className="flex items-center justify-between gap-4">
                   {isEditing ? (
                     <Input
                       value={editData.name || ''}
                       onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))}
-                      className="text-lg font-semibold h-9"
+                      className="text-lg font-semibold h-9 flex-1"
                     />
                   ) : (
-                    <h2 className="text-lg font-semibold truncate">{item.name}</h2>
+                    <h2 className="text-lg font-semibold truncate flex-1">{item.name}</h2>
                   )}
-                </div>
-
-                {/* Meta grid */}
-                <div className="grid grid-cols-4 gap-6">
-                  <div className="detail-section">
-                    <label className="detail-label">Year</label>
-                    {isEditing ? (
-                      <Input
-                        type="number"
-                        value={editData.year || ''}
-                        onChange={(e) => setEditData(prev => ({ ...prev, year: parseInt(e.target.value) || null }))}
-                        className="h-8"
-                      />
-                    ) : (
-                      <p className="detail-value flex items-center gap-1">
-                        <Calendar className="w-3 h-3 text-muted-foreground" />
-                        {item.year || '-'}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="detail-section">
-                    <label className="detail-label">Rating</label>
-                    {isEditing ? (
+                  
+                  {isEditing ? (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Star className="w-5 h-5 text-warning" />
                       <Input
                         type="number"
                         step="0.1"
@@ -231,108 +218,121 @@ export const DetailPanel = ({
                         max="10"
                         value={editData.rating || ''}
                         onChange={(e) => setEditData(prev => ({ ...prev, rating: parseFloat(e.target.value) || null }))}
-                        className="h-8"
+                        className="h-9 w-20"
                       />
-                    ) : (
-                      <p className="detail-value flex items-center gap-1">
-                        <Star className="w-3 h-3 text-warning" />
-                        {item.rating?.toFixed(1) || '-'}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="detail-section">
-                    <label className="detail-label">Category</label>
-                    {isEditing ? (
-                      <Select
-                        value={editData.categoryId}
-                        onValueChange={(value) => setEditData(prev => ({ ...prev, categoryId: value }))}
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {movableCategories.map(cat => (
-                            <SelectItem key={cat.id} value={cat.id}>
-                              {cat.emoji} {cat.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <p className="detail-value flex items-center gap-1">
-                        <span>{category?.emoji}</span>
-                        {category?.name || 'Unknown'}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="detail-section">
-                    <label className="detail-label">Added</label>
-                    <p className="detail-value text-muted-foreground">{formatDate(item.addedDate)}</p>
-                  </div>
-                </div>
-
-                {/* Genres */}
-                <div className="detail-section">
-                  <label className="detail-label">Genres</label>
-                  {isEditing ? (
-                    <Input
-                      value={(editData.genres || []).join(', ')}
-                      onChange={(e) => setEditData(prev => ({ 
-                        ...prev, 
-                        genres: e.target.value.split(',').map(g => g.trim()).filter(Boolean)
-                      }))}
-                      placeholder="Comma-separated genres"
-                      className="h-8"
-                    />
+                      <span className="text-muted-foreground">/10</span>
+                    </div>
                   ) : (
-                    <div className="flex flex-wrap gap-1">
-                      {item.genres.length > 0 ? item.genres.map((genre, i) => (
-                        <span 
-                          key={i}
-                          className="px-2 py-0.5 bg-muted text-muted-foreground text-xs"
-                          style={{ borderRadius: '2px' }}
-                        >
-                          {genre}
-                        </span>
-                      )) : (
-                        <span className="text-sm text-muted-foreground">-</span>
-                      )}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Star className="w-5 h-5 text-warning fill-warning" />
+                      <span className="text-lg font-semibold">{item.rating?.toFixed(1) || '-'}</span>
+                      <span className="text-muted-foreground">/10</span>
                     </div>
                   )}
                 </div>
 
-                {/* Path */}
-                <div className="detail-section">
-                  <label className="detail-label">Path</label>
+                {/* Divider */}
+                <div className="h-px bg-border my-3" />
+
+                {/* Description */}
+                <div className="flex-1 min-h-0">
                   {isEditing ? (
-                    <Input
-                      value={editData.path || ''}
-                      onChange={(e) => setEditData(prev => ({ ...prev, path: e.target.value }))}
-                      className="h-8"
+                    <Textarea
+                      value={editData.description || ''}
+                      onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))}
+                      rows={4}
+                      className="resize-none"
+                      placeholder="Description..."
                     />
                   ) : (
-                    <p className="detail-value text-muted-foreground truncate">{item.path || '-'}</p>
+                    <p className="text-sm text-foreground leading-relaxed line-clamp-4">
+                      {item.description || 'No description available.'}
+                    </p>
                   )}
                 </div>
-              </div>
 
-              {/* Description */}
-              <div className="w-80 shrink-0 detail-section">
-                <label className="detail-label">Description</label>
-                {isEditing ? (
-                  <Textarea
-                    value={editData.description || ''}
-                    onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))}
-                    rows={6}
-                    className="resize-none"
-                  />
-                ) : (
-                  <p className="detail-value text-muted-foreground leading-relaxed line-clamp-6">
-                    {item.description || 'No description available.'}
-                  </p>
-                )}
+                {/* Meta info - bottom */}
+                <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+                  {isEditing ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span>Year:</span>
+                        <Input
+                          type="number"
+                          value={editData.year || ''}
+                          onChange={(e) => setEditData(prev => ({ ...prev, year: parseInt(e.target.value) || null }))}
+                          className="h-7 w-20"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>Genres:</span>
+                        <Input
+                          value={(editData.genres || []).join(', ')}
+                          onChange={(e) => setEditData(prev => ({ 
+                            ...prev, 
+                            genres: e.target.value.split(',').map(g => g.trim()).filter(Boolean)
+                          }))}
+                          placeholder="Comma-separated"
+                          className="h-7 w-40"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>Category:</span>
+                        <Select
+                          value={editData.categoryId}
+                          onValueChange={(value) => setEditData(prev => ({ ...prev, categoryId: value }))}
+                        >
+                          <SelectTrigger className="h-7 w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {movableCategories.map(cat => {
+                              const Icon = getCategoryIcon(cat);
+                              return (
+                                <SelectItem key={cat.id} value={cat.id}>
+                                  <div className="flex items-center gap-2">
+                                    <Icon className="w-3.5 h-3.5 text-muted-foreground" />
+                                    {cat.name}
+                                  </div>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <span>Year: <span className="text-foreground">{item.year || '-'}</span></span>
+                      <span>•</span>
+                      <span>Genre: <span className="text-foreground">{item.genres.join(', ') || '-'}</span></span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1">
+                        {CategoryIcon && <CategoryIcon className="w-3.5 h-3.5" />}
+                        {category?.name || 'Unknown'}
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* Path and Added date */}
+                <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                  {isEditing ? (
+                    <div className="flex items-center gap-2">
+                      <span>Path:</span>
+                      <Input
+                        value={editData.path || ''}
+                        onChange={(e) => setEditData(prev => ({ ...prev, path: e.target.value }))}
+                        className="h-7 flex-1"
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <p className="truncate">Path: <span className="text-foreground/70">{item.path || '-'}</span></p>
+                      <p>Added: <span className="text-foreground/70">{formatDate(item.addedDate)}</span></p>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           )}
