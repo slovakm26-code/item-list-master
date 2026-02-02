@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Item, Category } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Upload, Link, X } from 'lucide-react';
 
 interface ItemDialogProps {
   open: boolean;
@@ -48,6 +50,10 @@ export const ItemDialog = ({
     path: '',
     coverPath: '',
   });
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [coverInputMode, setCoverInputMode] = useState<'url' | 'file'>('url');
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (item) {
@@ -188,13 +194,86 @@ export const ItemDialog = ({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="coverPath">Cover Image URL</Label>
-            <Input
-              id="coverPath"
-              value={formData.coverPath}
-              onChange={(e) => setFormData(prev => ({ ...prev, coverPath: e.target.value }))}
-              placeholder="https://example.com/cover.jpg"
-            />
+            <Label>Cover Image</Label>
+            <Tabs value={coverInputMode} onValueChange={(v) => setCoverInputMode(v as 'url' | 'file')}>
+              <TabsList className="grid w-full grid-cols-2 h-8">
+                <TabsTrigger value="url" className="text-xs gap-1">
+                  <Link className="w-3 h-3" />
+                  URL
+                </TabsTrigger>
+                <TabsTrigger value="file" className="text-xs gap-1">
+                  <Upload className="w-3 h-3" />
+                  Upload
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="url" className="mt-2">
+                <Input
+                  value={formData.coverPath}
+                  onChange={(e) => setFormData(prev => ({ ...prev, coverPath: e.target.value }))}
+                  placeholder="https://example.com/cover.jpg"
+                />
+              </TabsContent>
+              <TabsContent value="file" className="mt-2">
+                <input
+                  ref={coverFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setCoverFile(file);
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        setCoverPreview(ev.target?.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => coverFileInputRef.current?.click()}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {coverFile ? coverFile.name : 'Choose File'}
+                  </Button>
+                  {coverFile && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setCoverFile(null);
+                        setCoverPreview(null);
+                        if (coverFileInputRef.current) {
+                          coverFileInputRef.current.value = '';
+                        }
+                      }}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+                {coverPreview && (
+                  <div className="mt-2 relative">
+                    <img 
+                      src={coverPreview} 
+                      alt="Cover preview" 
+                      className="w-20 h-28 object-cover rounded-md border border-border"
+                    />
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+            <p className="text-xs text-muted-foreground">
+              {coverInputMode === 'file' 
+                ? 'Upload requires connected Storage (via toolbar)' 
+                : 'Enter a URL to an image'}
+            </p>
           </div>
 
           <div className="grid gap-2">

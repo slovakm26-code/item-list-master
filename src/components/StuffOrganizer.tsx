@@ -1,12 +1,15 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { useAppState } from '@/hooks/useAppState';
 import { useUIPreferences } from '@/hooks/useUIPreferences';
+import { useFileSystemStorage } from '@/hooks/useFileSystemStorage';
 import { Toolbar } from '@/components/Toolbar';
 import { CategoryTree } from '@/components/CategoryTree';
 import { VirtualizedList } from '@/components/VirtualizedList';
 import { DetailPanel } from '@/components/DetailPanel';
 import { ItemDialog } from '@/components/ItemDialog';
 import { BackupDialog } from '@/components/BackupDialog';
+import { StorageConnectionDialog } from '@/components/StorageConnectionDialog';
+import { SQLiteImportDialog } from '@/components/SQLiteImportDialog';
 import { Item, SortableColumn } from '@/types';
 import { downloadExport, importDatabase, createBackup } from '@/lib/database';
 import { toast } from 'sonner';
@@ -53,7 +56,19 @@ export const StuffOrganizer = () => {
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [backupDialogOpen, setBackupDialogOpen] = useState(false);
+  const [storageDialogOpen, setStorageDialogOpen] = useState(false);
+  const [sqliteImportDialogOpen, setSqliteImportDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // File system storage hook
+  const fileSystemStorage = useFileSystemStorage();
+
+  // Auto-save to file system when connected
+  useEffect(() => {
+    if (fileSystemStorage.isConnected) {
+      fileSystemStorage.save(state).catch(console.error);
+    }
+  }, [state.items, state.categories, fileSystemStorage.isConnected]);
 
   // Convert column widths to object format
   const columnWidths = useMemo(() => {
@@ -137,6 +152,9 @@ export const StuffOrganizer = () => {
         onImport={handleImport}
         onBackup={handleBackup}
         onManageBackups={() => setBackupDialogOpen(true)}
+        onOpenStorage={() => setStorageDialogOpen(true)}
+        onOpenSQLiteImport={() => setSqliteImportDialogOpen(true)}
+        isStorageConnected={fileSystemStorage.isConnected}
       />
 
       <div className="app-main">
@@ -204,6 +222,36 @@ export const StuffOrganizer = () => {
         open={backupDialogOpen}
         onOpenChange={setBackupDialogOpen}
         onRestore={replaceState}
+      />
+
+      <StorageConnectionDialog
+        open={storageDialogOpen}
+        onOpenChange={setStorageDialogOpen}
+        isSupported={fileSystemStorage.isSupported}
+        isConnected={fileSystemStorage.isConnected}
+        directoryName={fileSystemStorage.directoryName}
+        onConnect={fileSystemStorage.connect}
+        onDisconnect={fileSystemStorage.disconnect}
+      />
+
+      <SQLiteImportDialog
+        open={sqliteImportDialogOpen}
+        onOpenChange={setSqliteImportDialogOpen}
+        categories={state.categories}
+        onImport={(items) => {
+          items.forEach(item => {
+            addItem({
+              name: item.name,
+              year: item.year,
+              rating: item.rating,
+              genres: item.genres,
+              description: item.description,
+              categoryId: item.categoryId,
+              path: item.path,
+              coverPath: item.coverPath,
+            });
+          });
+        }}
       />
     </div>
   );
