@@ -27,9 +27,8 @@ interface ItemDialogProps {
   item: Item | null;
   categories: Category[];
   defaultCategoryId: string | null;
-  onSave: (item: Omit<Item, 'id' | 'orderIndex' | 'addedDate'>, coverFile?: File) => void;
-  onUpdate: (id: string, updates: Partial<Item>, coverFile?: File) => void;
-  isStorageConnected?: boolean;
+  onSave: (item: Omit<Item, 'id' | 'orderIndex' | 'addedDate'>) => void;
+  onUpdate: (id: string, updates: Partial<Item>) => void;
 }
 
 export const ItemDialog = ({
@@ -40,7 +39,6 @@ export const ItemDialog = ({
   defaultCategoryId,
   onSave,
   onUpdate,
-  isStorageConnected = false,
 }: ItemDialogProps) => {
   const [formData, setFormData] = useState({
     name: '',
@@ -88,6 +86,11 @@ export const ItemDialog = ({
   }, [item, defaultCategoryId, categories, open]);
 
   const handleSubmit = () => {
+    // If file is uploaded, use the base64 preview as coverPath
+    const finalCoverPath = coverInputMode === 'file' && coverPreview 
+      ? coverPreview 
+      : formData.coverPath.trim();
+
     const itemData = {
       name: formData.name.trim(),
       year: formData.year ? parseInt(formData.year) : null,
@@ -96,18 +99,15 @@ export const ItemDialog = ({
       description: formData.description.trim(),
       categoryId: formData.categoryId,
       path: formData.path.trim(),
-      coverPath: formData.coverPath.trim(),
+      coverPath: finalCoverPath,
     };
 
     if (!itemData.name) return;
 
-    // Pass coverFile if uploading from file
-    const fileToUpload = coverInputMode === 'file' && coverFile ? coverFile : undefined;
-
     if (item) {
-      onUpdate(item.id, itemData, fileToUpload);
+      onUpdate(item.id, itemData);
     } else {
-      onSave(itemData, fileToUpload);
+      onSave(itemData);
     }
     
     // Reset file state
@@ -280,9 +280,7 @@ export const ItemDialog = ({
             </Tabs>
             <p className="text-xs text-muted-foreground">
               {coverInputMode === 'file' 
-                ? (isStorageConnected 
-                    ? 'Image will be saved to connected storage folder' 
-                    : 'Connect Storage first (via toolbar) to upload images')
+                ? 'Image will be embedded in the backup file'
                 : 'Enter a URL to an image'}
             </p>
           </div>
