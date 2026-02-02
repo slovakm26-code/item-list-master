@@ -19,7 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, Link, X } from 'lucide-react';
+import { Upload, Link, X, Loader2 } from 'lucide-react';
+import { compressImage, formatBytes, estimateBase64Size } from '@/lib/imageUtils';
 
 interface ItemDialogProps {
   open: boolean;
@@ -53,6 +54,8 @@ export const ItemDialog = ({
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [coverInputMode, setCoverInputMode] = useState<'url' | 'file'>('url');
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [compressedSize, setCompressedSize] = useState<number | null>(null);
   const coverFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -228,15 +231,35 @@ export const ItemDialog = ({
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file) {
                       setCoverFile(file);
-                      const reader = new FileReader();
-                      reader.onload = (ev) => {
-                        setCoverPreview(ev.target?.result as string);
-                      };
-                      reader.readAsDataURL(file);
+                      setIsCompressing(true);
+                      setCompressedSize(null);
+                      try {
+                        // Compress image to max 600x900, quality 85%
+                        const compressed = await compressImage(file, {
+                          maxWidth: 600,
+                          maxHeight: 900,
+                          quality: 0.85,
+                          format: 'jpeg',
+                        });
+                        setCoverPreview(compressed);
+                        setCompressedSize(estimateBase64Size(compressed));
+                      } catch (err) {
+                        console.error('Failed to compress image:', err);
+                        // Fallback to original
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          const result = ev.target?.result as string;
+                          setCoverPreview(result);
+                          setCompressedSize(estimateBase64Size(result));
+                        };
+                        reader.readAsDataURL(file);
+                      } finally {
+                        setIsCompressing(false);
+                      }
                     }
                   }}
                 />
@@ -267,13 +290,23 @@ export const ItemDialog = ({
                     </Button>
                   )}
                 </div>
-                {coverPreview && (
-                  <div className="mt-2 relative">
+                {isCompressing && (
+                  <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Optimalizujem obrázok...
+                  </div>
+                )}
+                {coverPreview && !isCompressing && (
+                  <div className="mt-2 flex items-start gap-3">
                     <img 
                       src={coverPreview} 
                       alt="Cover preview" 
                       className="w-20 h-28 object-cover rounded-md border border-border"
                     />
+                    <div className="text-xs text-muted-foreground">
+                      <p>Veľkosť: {compressedSize ? formatBytes(compressedSize) : 'N/A'}</p>
+                      <p className="text-green-600 dark:text-green-400">✓ Optimalizované</p>
+                    </div>
                   </div>
                 )}
               </TabsContent>
