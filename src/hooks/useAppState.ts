@@ -1,13 +1,52 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Category, Item, AppState, SortableColumn } from '@/types';
 import { initDatabase, saveDatabase, generateId } from '@/lib/database';
 
+// Debounced save to prevent excessive writes
+const SAVE_DELAY = 2000;
+
 export const useAppState = () => {
   const [state, setState] = useState<AppState>(() => initDatabase());
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialMount = useRef(true);
 
-  // Persist to localStorage on changes
+  // Debounced persist to localStorage
   useEffect(() => {
-    saveDatabase(state);
+    // Skip initial mount to avoid unnecessary save
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Schedule new save
+    saveTimeoutRef.current = setTimeout(() => {
+      saveDatabase(state);
+    }, SAVE_DELAY);
+
+    // Cleanup on unmount
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [state]);
+
+  // Save immediately on beforeunload to prevent data loss
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      saveDatabase(state);
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [state]);
 
   // Categories operations
