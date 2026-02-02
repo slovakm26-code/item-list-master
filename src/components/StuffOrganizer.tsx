@@ -11,7 +11,8 @@ import { BackupDialog } from '@/components/BackupDialog';
 import { StorageConnectionDialog } from '@/components/StorageConnectionDialog';
 import { SQLiteImportDialog } from '@/components/SQLiteImportDialog';
 import { Item, SortableColumn } from '@/types';
-import { downloadExport, importDatabase, createBackup } from '@/lib/database';
+import { createBackup } from '@/lib/database';
+import { downloadExportWithImages, importDatabaseWithImages } from '@/lib/exportWithImages';
 import { toast } from 'sonner';
 
 export const StuffOrganizer = () => {
@@ -89,13 +90,49 @@ export const StuffOrganizer = () => {
     setItemDialogOpen(true);
   };
 
-  const handleSaveItem = (item: Omit<Item, 'id' | 'orderIndex' | 'addedDate'>) => {
-    addItem(item);
+  const handleSaveItem = async (
+    item: Omit<Item, 'id' | 'orderIndex' | 'addedDate'>, 
+    coverFile?: File
+  ) => {
+    // Generate ID for the new item
+    const newItemId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    let coverPath = item.coverPath;
+    
+    // Save cover image if provided and storage is connected
+    if (coverFile && fileSystemStorage.isConnected) {
+      try {
+        const filename = await fileSystemStorage.saveItemImage(coverFile, newItemId);
+        coverPath = `images/${filename}`;
+      } catch (error) {
+        console.error('Failed to save cover image:', error);
+        toast.error('Failed to save cover image');
+      }
+    }
+    
+    addItem({ ...item, coverPath });
     toast.success('Item added successfully');
   };
 
-  const handleUpdateItem = (id: string, updates: Partial<Item>) => {
-    updateItem(id, updates);
+  const handleUpdateItem = async (
+    id: string, 
+    updates: Partial<Item>, 
+    coverFile?: File
+  ) => {
+    let coverPath = updates.coverPath;
+    
+    // Save cover image if provided and storage is connected
+    if (coverFile && fileSystemStorage.isConnected) {
+      try {
+        const filename = await fileSystemStorage.saveItemImage(coverFile, id);
+        coverPath = `images/${filename}`;
+      } catch (error) {
+        console.error('Failed to save cover image:', error);
+        toast.error('Failed to save cover image');
+      }
+    }
+    
+    updateItem(id, { ...updates, coverPath });
     toast.success('Item updated successfully');
   };
 
@@ -104,9 +141,18 @@ export const StuffOrganizer = () => {
     toast.success(`${ids.length} item(s) deleted`);
   };
 
-  const handleExport = () => {
-    downloadExport();
-    toast.success('Database exported successfully');
+  const handleExport = async () => {
+    try {
+      // Export with embedded images if storage is connected
+      await downloadExportWithImages(
+        state,
+        fileSystemStorage.isConnected ? fileSystemStorage.loadItemImage : undefined
+      );
+      toast.success('Database exported with images');
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast.error('Failed to export database');
+    }
   };
 
   const handleImport = () => {
@@ -117,10 +163,24 @@ export const StuffOrganizer = () => {
     const file = e.target.files?.[0];
     if (file) {
       try {
-        const newState = await importDatabase(file);
-        replaceState(newState);
-        toast.success('Database imported successfully');
+        // Import with image restoration if storage is connected
+        const data = await importDatabaseWithImages(
+          file,
+          fileSystemStorage.isConnected 
+            ? async (blob, itemId, ext) => fileSystemStorage.saveItemImageBlob(blob, itemId, ext)
+            : undefined
+        );
+        
+        replaceState({
+          ...state,
+          categories: data.categories,
+          items: data.items,
+        });
+        
+        toast.success(`Imported ${data.items.length} items` + 
+          (fileSystemStorage.isConnected ? ' with images' : ''));
       } catch (error) {
+        console.error('Import failed:', error);
         toast.error('Failed to import database. Invalid file format.');
       }
     }
@@ -216,6 +276,7 @@ export const StuffOrganizer = () => {
         defaultCategoryId={state.selectedCategoryId}
         onSave={handleSaveItem}
         onUpdate={handleUpdateItem}
+        isStorageConnected={fileSystemStorage.isConnected}
       />
 
       <BackupDialog

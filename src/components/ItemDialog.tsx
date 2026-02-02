@@ -27,8 +27,9 @@ interface ItemDialogProps {
   item: Item | null;
   categories: Category[];
   defaultCategoryId: string | null;
-  onSave: (item: Omit<Item, 'id' | 'orderIndex' | 'addedDate'>) => void;
-  onUpdate: (id: string, updates: Partial<Item>) => void;
+  onSave: (item: Omit<Item, 'id' | 'orderIndex' | 'addedDate'>, coverFile?: File) => void;
+  onUpdate: (id: string, updates: Partial<Item>, coverFile?: File) => void;
+  isStorageConnected?: boolean;
 }
 
 export const ItemDialog = ({
@@ -39,6 +40,7 @@ export const ItemDialog = ({
   defaultCategoryId,
   onSave,
   onUpdate,
+  isStorageConnected = false,
 }: ItemDialogProps) => {
   const [formData, setFormData] = useState({
     name: '',
@@ -99,11 +101,18 @@ export const ItemDialog = ({
 
     if (!itemData.name) return;
 
+    // Pass coverFile if uploading from file
+    const fileToUpload = coverInputMode === 'file' && coverFile ? coverFile : undefined;
+
     if (item) {
-      onUpdate(item.id, itemData);
+      onUpdate(item.id, itemData, fileToUpload);
     } else {
-      onSave(itemData);
+      onSave(itemData, fileToUpload);
     }
+    
+    // Reset file state
+    setCoverFile(null);
+    setCoverPreview(null);
     onOpenChange(false);
   };
 
@@ -271,7 +280,9 @@ export const ItemDialog = ({
             </Tabs>
             <p className="text-xs text-muted-foreground">
               {coverInputMode === 'file' 
-                ? 'Upload requires connected Storage (via toolbar)' 
+                ? (isStorageConnected 
+                    ? 'Image will be saved to connected storage folder' 
+                    : 'Connect Storage first (via toolbar) to upload images')
                 : 'Enter a URL to an image'}
             </p>
           </div>
