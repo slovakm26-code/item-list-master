@@ -5,7 +5,11 @@
 
 import initSqlJs, { Database } from 'sql.js';
 import { Item, Category } from '@/types';
-import { generateId } from './database';
+
+// Generate unique ID
+const generateId = (): string => {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+};
 
 // Initialize SQL.js with WASM
 let SQL: Awaited<ReturnType<typeof initSqlJs>> | null = null;

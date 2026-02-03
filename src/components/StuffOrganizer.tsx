@@ -12,7 +12,6 @@ import { StorageConnectionDialog } from '@/components/StorageConnectionDialog';
 import { SQLiteImportDialog } from '@/components/SQLiteImportDialog';
 import { CustomFieldFilter } from '@/components/CustomFieldFilter';
 import { Item, SortableColumn, CustomFieldFilter as CustomFieldFilterType } from '@/types';
-import { createBackup } from '@/lib/database';
 import { downloadExportWithImages, importDatabaseWithImages } from '@/lib/exportWithImages';
 import { toast } from 'sonner';
 import { Loader2, AlertCircle, Database } from 'lucide-react';
@@ -275,7 +274,10 @@ export const StuffOrganizer = () => {
   };
 
   const handleBackup = () => {
-    createBackup();
+    // Create backup in localStorage
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const backupKey = `stuff_organizer_backup_${timestamp}`;
+    localStorage.setItem(backupKey, JSON.stringify(state));
     toast.success('Backup created successfully');
   };
 

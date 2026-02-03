@@ -4,7 +4,11 @@
  */
 
 import { AppState, DatabaseExport, Item, Category } from '@/types';
-import { getTimestamp, generateId } from './database';
+
+// Generate timestamp for filenames
+const getTimestamp = (): string => {
+  return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+};
 
 // Convert File/Blob to base64 string
 export const fileToBase64 = (file: File | Blob): Promise<string> => {
