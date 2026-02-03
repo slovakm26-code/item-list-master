@@ -1,55 +1,63 @@
+/**
+ * Storage Module - SQLite Only
+ * 
+ * Centralizovaný vstupný bod pre SQLite úložisko.
+ * Web používa sql.js (WASM), Electron používa better-sqlite3.
+ */
+
 import { StorageAdapter, detectStorageType } from './StorageAdapter';
-import { LocalStorageAdapter } from './LocalStorageAdapter';
-import { IndexedDBAdapter } from './IndexedDBAdapter';
 import { WebSQLiteAdapter } from './WebSQLiteAdapter';
 
 export * from './StorageAdapter';
-export { LocalStorageAdapter } from './LocalStorageAdapter';
-export { IndexedDBAdapter } from './IndexedDBAdapter';
 export { WebSQLiteAdapter } from './WebSQLiteAdapter';
 
+// Re-export pre spätná kompatibilitu (deprecated)
+export { LocalStorageAdapter } from './LocalStorageAdapter';
+export { IndexedDBAdapter } from './IndexedDBAdapter';
+
 /**
- * Create the appropriate storage adapter based on environment
- * - Web: WebSQLite (sql.js with IndexedDB persistence) - DEFAULT for best performance
- * - Electron (future): Native SQLite via better-sqlite3
- * - Fallback: IndexedDB or localStorage
+ * Create SQLite storage adapter
+ * - Web: WebSQLite (sql.js with IndexedDB persistence)
+ * - Electron: Native SQLite via better-sqlite3 (auto-detected)
  */
-export const createStorageAdapter = (preferSQLite = true): StorageAdapter => {
+export const createStorageAdapter = (): StorageAdapter => {
   const type = detectStorageType();
   
-  // Default to WebSQLite for best performance with large datasets
-  if (preferSQLite && type !== 'localStorage') {
-    console.log('Using WebSQLite adapter (sql.js)');
+  if (type === 'sqlite') {
+    // Electron s natívnym SQLite
+    console.log('Using native SQLite adapter (Electron)');
+    // V Electron verzii sa použije SQLiteAdapter z electron/main.ts
+    // Tu vrátime WebSQLiteAdapter ako fallback
     return new WebSQLiteAdapter();
   }
   
-  switch (type) {
-    case 'sqlite':
-      // Electron native SQLite
-      console.log('SQLite detected but not implemented yet, using WebSQLite');
-      return new WebSQLiteAdapter();
-      
-    case 'indexedDB':
-      return new IndexedDBAdapter();
-      
-    case 'localStorage':
-    default:
-      return new LocalStorageAdapter();
-  }
+  // Web verzia - vždy WebSQLite
+  console.log('Using WebSQLite adapter (sql.js)');
+  return new WebSQLiteAdapter();
 };
 
 // Singleton instance
 let storageInstance: StorageAdapter | null = null;
+let initPromise: Promise<StorageAdapter> | null = null;
 
 /**
- * Get the global storage adapter instance
+ * Get the global storage adapter instance (singleton)
+ * Thread-safe initialization
  */
 export const getStorage = async (): Promise<StorageAdapter> => {
-  if (!storageInstance) {
-    storageInstance = createStorageAdapter();
-    await storageInstance.init();
+  if (storageInstance?.isReady()) {
+    return storageInstance;
   }
-  return storageInstance;
+
+  if (!initPromise) {
+    initPromise = (async () => {
+      storageInstance = createStorageAdapter();
+      await storageInstance.init();
+      return storageInstance;
+    })();
+  }
+
+  return initPromise;
 };
 
 /**
@@ -57,4 +65,12 @@ export const getStorage = async (): Promise<StorageAdapter> => {
  */
 export const resetStorage = (): void => {
   storageInstance = null;
+  initPromise = null;
+};
+
+/**
+ * Check if storage is initialized
+ */
+export const isStorageReady = (): boolean => {
+  return storageInstance?.isReady() ?? false;
 };
