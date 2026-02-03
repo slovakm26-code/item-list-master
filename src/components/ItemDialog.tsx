@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Item, Category } from '@/types';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Item, Category, CustomFieldDefinition, DEFAULT_ENABLED_FIELDS } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,6 +33,11 @@ interface ItemDialogProps {
   onUpdate: (id: string, updates: Partial<Item>) => void;
 }
 
+// Helper to get enabled fields for a category
+const getEnabledFields = (category: Category | undefined) => {
+  return category?.enabledFields || DEFAULT_ENABLED_FIELDS;
+};
+
 export const ItemDialog = ({
   open,
   onOpenChange,
@@ -55,12 +60,21 @@ export const ItemDialog = ({
     episode: '',
     watched: false,
   });
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | number | boolean>>({});
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [coverInputMode, setCoverInputMode] = useState<'url' | 'file'>('url');
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressedSize, setCompressedSize] = useState<number | null>(null);
   const coverFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Get the selected category and its fields
+  const selectedCategory = useMemo(() => 
+    categories.find(c => c.id === formData.categoryId),
+    [categories, formData.categoryId]
+  );
+  const enabledFields = useMemo(() => getEnabledFields(selectedCategory), [selectedCategory]);
+  const customFields = selectedCategory?.customFields || [];
 
   useEffect(() => {
     if (item) {
@@ -77,6 +91,7 @@ export const ItemDialog = ({
         episode: item.episode?.toString() || '',
         watched: item.watched || false,
       });
+      setCustomFieldValues(item.customFieldValues || {});
     } else {
       const defaultCat = defaultCategoryId && defaultCategoryId !== 'all' 
         ? defaultCategoryId 
@@ -95,6 +110,7 @@ export const ItemDialog = ({
         episode: '',
         watched: false,
       });
+      setCustomFieldValues({});
     }
   }, [item, defaultCategoryId, categories, open]);
 
@@ -106,16 +122,17 @@ export const ItemDialog = ({
 
     const itemData = {
       name: formData.name.trim(),
-      year: formData.year ? parseInt(formData.year) : null,
-      rating: formData.rating ? parseFloat(formData.rating) : null,
-      genres: formData.genres.split(',').map(g => g.trim()).filter(Boolean),
-      description: formData.description.trim(),
+      year: enabledFields.year && formData.year ? parseInt(formData.year) : null,
+      rating: enabledFields.rating && formData.rating ? parseFloat(formData.rating) : null,
+      genres: enabledFields.genres ? formData.genres.split(',').map(g => g.trim()).filter(Boolean) : [],
+      description: enabledFields.description ? formData.description.trim() : '',
       categoryId: formData.categoryId,
-      path: formData.path.trim(),
+      path: enabledFields.path ? formData.path.trim() : '',
       coverPath: finalCoverPath,
-      season: formData.season ? parseInt(formData.season) : null,
-      episode: formData.episode ? parseInt(formData.episode) : null,
-      watched: formData.watched,
+      season: enabledFields.season && formData.season ? parseInt(formData.season) : null,
+      episode: enabledFields.episode && formData.episode ? parseInt(formData.episode) : null,
+      watched: enabledFields.watched ? formData.watched : false,
+      customFieldValues: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
     };
 
     if (!itemData.name) return;
@@ -129,7 +146,77 @@ export const ItemDialog = ({
     // Reset file state
     setCoverFile(null);
     setCoverPreview(null);
+    setCustomFieldValues({});
     onOpenChange(false);
+  };
+
+  // Render a custom field input based on its type
+  const renderCustomField = (field: CustomFieldDefinition) => {
+    const value = customFieldValues[field.id];
+    
+    switch (field.type) {
+      case 'text':
+        return (
+          <Input
+            value={(value as string) || ''}
+            onChange={(e) => setCustomFieldValues(prev => ({ ...prev, [field.id]: e.target.value }))}
+            placeholder={field.placeholder || `Enter ${field.name.toLowerCase()}`}
+          />
+        );
+      case 'number':
+        return (
+          <Input
+            type="number"
+            min={field.min}
+            max={field.max}
+            value={(value as number) ?? ''}
+            onChange={(e) => setCustomFieldValues(prev => ({ 
+              ...prev, 
+              [field.id]: e.target.value ? parseFloat(e.target.value) : '' 
+            }))}
+            placeholder={field.placeholder || '0'}
+          />
+        );
+      case 'checkbox':
+        return (
+          <div className="flex items-center gap-2 h-10">
+            <Checkbox
+              id={`custom-${field.id}`}
+              checked={!!value}
+              onCheckedChange={(checked) => setCustomFieldValues(prev => ({ ...prev, [field.id]: checked === true }))}
+            />
+            <Label htmlFor={`custom-${field.id}`} className="text-sm font-normal cursor-pointer">
+              {field.name}
+            </Label>
+          </div>
+        );
+      case 'select':
+        return (
+          <Select
+            value={(value as string) || ''}
+            onValueChange={(v) => setCustomFieldValues(prev => ({ ...prev, [field.id]: v }))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={`Select ${field.name.toLowerCase()}`} />
+            </SelectTrigger>
+            <SelectContent>
+              {(field.options || []).map(opt => (
+                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      case 'date':
+        return (
+          <Input
+            type="date"
+            value={(value as string) || ''}
+            onChange={(e) => setCustomFieldValues(prev => ({ ...prev, [field.id]: e.target.value }))}
+          />
+        );
+      default:
+        return null;
+    }
   };
 
   const movableCategories = categories.filter(c => c.id !== 'all');
@@ -152,70 +239,7 @@ export const ItemDialog = ({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="year">Year</Label>
-              <Input
-                id="year"
-                type="number"
-                value={formData.year}
-                onChange={(e) => setFormData(prev => ({ ...prev, year: e.target.value }))}
-                placeholder="2024"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="rating">Rating (0-10)</Label>
-              <Input
-                id="rating"
-                type="number"
-                step="0.1"
-                min="0"
-                max="10"
-                value={formData.rating}
-                onChange={(e) => setFormData(prev => ({ ...prev, rating: e.target.value }))}
-                placeholder="8.5"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="season">Season</Label>
-              <Input
-                id="season"
-                type="number"
-                min="1"
-                value={formData.season}
-                onChange={(e) => setFormData(prev => ({ ...prev, season: e.target.value }))}
-                placeholder="1"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="episode">Episode</Label>
-              <Input
-                id="episode"
-                type="number"
-                min="1"
-                value={formData.episode}
-                onChange={(e) => setFormData(prev => ({ ...prev, episode: e.target.value }))}
-                placeholder="1"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Status</Label>
-              <div className="flex items-center gap-2 h-10">
-                <Checkbox
-                  id="watched"
-                  checked={formData.watched}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, watched: checked === true }))}
-                />
-                <Label htmlFor="watched" className="text-sm font-normal cursor-pointer">
-                  Watched / Completed
-                </Label>
-              </div>
-            </div>
-          </div>
-
+          {/* Category selector - always visible */}
           <div className="grid gap-2">
             <Label htmlFor="category">Category *</Label>
             <Select
@@ -235,26 +259,124 @@ export const ItemDialog = ({
             </Select>
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="genres">Genres</Label>
-            <Input
-              id="genres"
-              value={formData.genres}
-              onChange={(e) => setFormData(prev => ({ ...prev, genres: e.target.value }))}
-              placeholder="Action, Drama, Thriller"
-            />
-            <p className="text-xs text-muted-foreground">Separate genres with commas</p>
+          {/* Built-in fields - conditionally shown based on category config */}
+          <div className="grid grid-cols-2 gap-4">
+            {enabledFields.year && (
+              <div className="grid gap-2">
+                <Label htmlFor="year">Year</Label>
+                <Input
+                  id="year"
+                  type="number"
+                  value={formData.year}
+                  onChange={(e) => setFormData(prev => ({ ...prev, year: e.target.value }))}
+                  placeholder="2024"
+                />
+              </div>
+            )}
+            {enabledFields.rating && (
+              <div className="grid gap-2">
+                <Label htmlFor="rating">Rating (0-10)</Label>
+                <Input
+                  id="rating"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="10"
+                  value={formData.rating}
+                  onChange={(e) => setFormData(prev => ({ ...prev, rating: e.target.value }))}
+                  placeholder="8.5"
+                />
+              </div>
+            )}
+            {enabledFields.season && (
+              <div className="grid gap-2">
+                <Label htmlFor="season">Season</Label>
+                <Input
+                  id="season"
+                  type="number"
+                  min="1"
+                  value={formData.season}
+                  onChange={(e) => setFormData(prev => ({ ...prev, season: e.target.value }))}
+                  placeholder="1"
+                />
+              </div>
+            )}
+            {enabledFields.episode && (
+              <div className="grid gap-2">
+                <Label htmlFor="episode">Episode</Label>
+                <Input
+                  id="episode"
+                  type="number"
+                  min="1"
+                  value={formData.episode}
+                  onChange={(e) => setFormData(prev => ({ ...prev, episode: e.target.value }))}
+                  placeholder="1"
+                />
+              </div>
+            )}
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="path">Path</Label>
-            <Input
-              id="path"
-              value={formData.path}
-              onChange={(e) => setFormData(prev => ({ ...prev, path: e.target.value }))}
-              placeholder="C:\Movies\Example"
-            />
-          </div>
+          {enabledFields.watched && (
+            <div className="grid gap-2">
+              <Label>Status</Label>
+              <div className="flex items-center gap-2 h-10">
+                <Checkbox
+                  id="watched"
+                  checked={formData.watched}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, watched: checked === true }))}
+                />
+                <Label htmlFor="watched" className="text-sm font-normal cursor-pointer">
+                  Watched / Completed
+                </Label>
+              </div>
+            </div>
+          )}
+
+          {enabledFields.genres && (
+            <div className="grid gap-2">
+              <Label htmlFor="genres">Genres</Label>
+              <Input
+                id="genres"
+                value={formData.genres}
+                onChange={(e) => setFormData(prev => ({ ...prev, genres: e.target.value }))}
+                placeholder="Action, Drama, Thriller"
+              />
+              <p className="text-xs text-muted-foreground">Separate genres with commas</p>
+            </div>
+          )}
+
+          {enabledFields.path && (
+            <div className="grid gap-2">
+              <Label htmlFor="path">Path</Label>
+              <Input
+                id="path"
+                value={formData.path}
+                onChange={(e) => setFormData(prev => ({ ...prev, path: e.target.value }))}
+                placeholder="C:\Movies\Example"
+              />
+            </div>
+          )}
+
+          {/* Custom Fields Section */}
+          {customFields.length > 0 && (
+            <div className="space-y-4 pt-2 border-t">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Custom Fields
+              </Label>
+              <div className="grid grid-cols-2 gap-4">
+                {customFields.map(field => (
+                  <div key={field.id} className={field.type === 'checkbox' ? '' : 'grid gap-2'}>
+                    {field.type !== 'checkbox' && (
+                      <Label htmlFor={`custom-${field.id}`}>
+                        {field.name}{field.required && ' *'}
+                      </Label>
+                    )}
+                    {renderCustomField(field)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-2">
             <Label>Cover Image</Label>
@@ -369,16 +491,18 @@ export const ItemDialog = ({
             </p>
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Enter a description..."
-              rows={4}
-            />
-          </div>
+          {enabledFields.description && (
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Enter a description..."
+                rows={4}
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter>

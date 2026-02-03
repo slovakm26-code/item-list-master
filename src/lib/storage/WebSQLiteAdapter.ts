@@ -60,14 +60,16 @@ export class WebSQLiteAdapter implements StorageAdapter {
 
     // Create schema with proper indexes and FTS5
     this.db.run(`
-      -- Categories table
+      -- Categories table with custom fields support
       CREATE TABLE IF NOT EXISTS categories (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         parentId TEXT,
         orderIndex INTEGER DEFAULT 0,
         icon TEXT,
-        emoji TEXT
+        emoji TEXT,
+        customFields TEXT,
+        enabledFields TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_categories_order ON categories(orderIndex);
 
@@ -83,7 +85,11 @@ export class WebSQLiteAdapter implements StorageAdapter {
         path TEXT,
         addedDate TEXT,
         coverPath TEXT,
-        orderIndex INTEGER DEFAULT 0
+        orderIndex INTEGER DEFAULT 0,
+        season INTEGER,
+        episode INTEGER,
+        watched INTEGER DEFAULT 0,
+        customFieldValues TEXT
       );
       
       -- Indexes for fast querying (critical for 1M+ items)
@@ -138,7 +144,7 @@ export class WebSQLiteAdapter implements StorageAdapter {
       );
 
       -- Store schema version for migrations
-      INSERT OR IGNORE INTO settings (key, value) VALUES ('schema_version', '2');
+      INSERT OR IGNORE INTO settings (key, value) VALUES ('schema_version', '3');
     `);
 
     await this.persist();
@@ -151,7 +157,7 @@ export class WebSQLiteAdapter implements StorageAdapter {
     const result = this.db.exec("SELECT value FROM settings WHERE key = 'schema_version'");
     const currentVersion = result[0]?.values[0]?.[0] as string || '1';
 
-    if (currentVersion === '1') {
+    if (parseInt(currentVersion) < 2) {
       // Migration v1 -> v2: Add FTS5
       console.log('Running migration v1 -> v2: Adding FTS5');
       
@@ -197,7 +203,31 @@ export class WebSQLiteAdapter implements StorageAdapter {
           INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '2');
         `);
       } catch (e) {
-        console.warn('Migration warning:', e);
+        console.warn('Migration v1->v2 warning:', e);
+      }
+      
+      await this.persist();
+    }
+
+    // Migration v2 -> v3: Add custom fields support
+    if (parseInt(currentVersion) < 3) {
+      console.log('Running migration v2 -> v3: Adding custom fields support');
+      
+      try {
+        // Add new columns to categories table
+        this.db.run(`ALTER TABLE categories ADD COLUMN customFields TEXT`);
+        this.db.run(`ALTER TABLE categories ADD COLUMN enabledFields TEXT`);
+        
+        // Add new columns to items table  
+        this.db.run(`ALTER TABLE items ADD COLUMN season INTEGER`);
+        this.db.run(`ALTER TABLE items ADD COLUMN episode INTEGER`);
+        this.db.run(`ALTER TABLE items ADD COLUMN watched INTEGER DEFAULT 0`);
+        this.db.run(`ALTER TABLE items ADD COLUMN customFieldValues TEXT`);
+        
+        // Update version
+        this.db.run(`INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '3')`);
+      } catch (e) {
+        console.warn('Migration v2->v3 warning:', e);
       }
       
       await this.persist();
@@ -320,18 +350,23 @@ export class WebSQLiteAdapter implements StorageAdapter {
       // Clear and save categories
       this.db.run('DELETE FROM categories');
       const catStmt = this.db.prepare(
-        'INSERT INTO categories (id, name, parentId, orderIndex, icon, emoji) VALUES (?, ?, ?, ?, ?, ?)'
+        'INSERT INTO categories (id, name, parentId, orderIndex, icon, emoji, customFields, enabledFields) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
       );
       for (const cat of state.categories) {
-        catStmt.run([cat.id, cat.name, cat.parentId, cat.orderIndex, cat.icon || null, cat.emoji || null]);
+        catStmt.run([
+          cat.id, cat.name, cat.parentId, cat.orderIndex, 
+          cat.icon || null, cat.emoji || null,
+          cat.customFields ? JSON.stringify(cat.customFields) : null,
+          cat.enabledFields ? JSON.stringify(cat.enabledFields) : null,
+        ]);
       }
       catStmt.free();
 
       // Clear and save items with batch commits
       this.db.run('DELETE FROM items');
       const itemStmt = this.db.prepare(
-        `INSERT INTO items (id, name, year, rating, genres, description, categoryId, path, addedDate, coverPath, orderIndex)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO items (id, name, year, rating, genres, description, categoryId, path, addedDate, coverPath, orderIndex, season, episode, watched, customFieldValues)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       );
       
       for (const item of state.items) {
@@ -339,7 +374,9 @@ export class WebSQLiteAdapter implements StorageAdapter {
           item.id, item.name, item.year, item.rating,
           JSON.stringify(item.genres), item.description,
           item.categoryId, item.path, item.addedDate,
-          item.coverPath, item.orderIndex
+          item.coverPath, item.orderIndex,
+          item.season, item.episode, item.watched ? 1 : 0,
+          item.customFieldValues ? JSON.stringify(item.customFieldValues) : null
         ]);
       }
       itemStmt.free();
@@ -496,6 +533,7 @@ export class WebSQLiteAdapter implements StorageAdapter {
       season: obj.season ?? null,
       episode: obj.episode ?? null,
       watched: obj.watched === 1 || obj.watched === true || false,
+      customFieldValues: obj.customFieldValues ? JSON.parse(obj.customFieldValues) : undefined,
     };
   }
 
@@ -527,13 +565,15 @@ export class WebSQLiteAdapter implements StorageAdapter {
     if (!this.db) return;
 
     this.db.run(
-      `INSERT INTO items (id, name, year, rating, genres, description, categoryId, path, addedDate, coverPath, orderIndex)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO items (id, name, year, rating, genres, description, categoryId, path, addedDate, coverPath, orderIndex, season, episode, watched, customFieldValues)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         item.id, item.name, item.year, item.rating,
         JSON.stringify(item.genres), item.description,
         item.categoryId, item.path, item.addedDate,
-        item.coverPath, item.orderIndex
+        item.coverPath, item.orderIndex,
+        item.season, item.episode, item.watched ? 1 : 0,
+        item.customFieldValues ? JSON.stringify(item.customFieldValues) : null
       ]
     );
     this.debouncedPersist();
@@ -547,8 +587,8 @@ export class WebSQLiteAdapter implements StorageAdapter {
     if (!this.db || items.length === 0) return;
 
     const stmt = this.db.prepare(
-      `INSERT INTO items (id, name, year, rating, genres, description, categoryId, path, addedDate, coverPath, orderIndex)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO items (id, name, year, rating, genres, description, categoryId, path, addedDate, coverPath, orderIndex, season, episode, watched, customFieldValues)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
 
     this.db.run('BEGIN TRANSACTION');
@@ -560,7 +600,9 @@ export class WebSQLiteAdapter implements StorageAdapter {
           item.id, item.name, item.year, item.rating,
           JSON.stringify(item.genres), item.description,
           item.categoryId, item.path, item.addedDate,
-          item.coverPath, item.orderIndex
+          item.coverPath, item.orderIndex,
+          item.season, item.episode, item.watched ? 1 : 0,
+          item.customFieldValues ? JSON.stringify(item.customFieldValues) : null
         ]);
 
         // Commit batch and report progress
@@ -598,6 +640,10 @@ export class WebSQLiteAdapter implements StorageAdapter {
     if (updates.path !== undefined) { setClauses.push('path = ?'); params.push(updates.path); }
     if (updates.coverPath !== undefined) { setClauses.push('coverPath = ?'); params.push(updates.coverPath); }
     if (updates.orderIndex !== undefined) { setClauses.push('orderIndex = ?'); params.push(updates.orderIndex); }
+    if (updates.season !== undefined) { setClauses.push('season = ?'); params.push(updates.season); }
+    if (updates.episode !== undefined) { setClauses.push('episode = ?'); params.push(updates.episode); }
+    if (updates.watched !== undefined) { setClauses.push('watched = ?'); params.push(updates.watched ? 1 : 0); }
+    if (updates.customFieldValues !== undefined) { setClauses.push('customFieldValues = ?'); params.push(JSON.stringify(updates.customFieldValues)); }
 
     if (setClauses.length === 0) return;
 
@@ -633,6 +679,8 @@ export class WebSQLiteAdapter implements StorageAdapter {
         orderIndex: obj.orderIndex,
         icon: obj.icon,
         emoji: obj.emoji,
+        customFields: obj.customFields ? JSON.parse(obj.customFields) : undefined,
+        enabledFields: obj.enabledFields ? JSON.parse(obj.enabledFields) : undefined,
       };
     });
   }
@@ -641,8 +689,17 @@ export class WebSQLiteAdapter implements StorageAdapter {
     if (!this.db) return;
 
     this.db.run(
-      'INSERT INTO categories (id, name, parentId, orderIndex, icon, emoji) VALUES (?, ?, ?, ?, ?, ?)',
-      [category.id, category.name, category.parentId, category.orderIndex, category.icon || null, category.emoji || null]
+      'INSERT INTO categories (id, name, parentId, orderIndex, icon, emoji, customFields, enabledFields) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        category.id, 
+        category.name, 
+        category.parentId, 
+        category.orderIndex, 
+        category.icon || null, 
+        category.emoji || null,
+        category.customFields ? JSON.stringify(category.customFields) : null,
+        category.enabledFields ? JSON.stringify(category.enabledFields) : null,
+      ]
     );
     await this.persist();
   }
@@ -658,6 +715,8 @@ export class WebSQLiteAdapter implements StorageAdapter {
     if (updates.orderIndex !== undefined) { setClauses.push('orderIndex = ?'); params.push(updates.orderIndex); }
     if (updates.icon !== undefined) { setClauses.push('icon = ?'); params.push(updates.icon); }
     if (updates.emoji !== undefined) { setClauses.push('emoji = ?'); params.push(updates.emoji); }
+    if (updates.customFields !== undefined) { setClauses.push('customFields = ?'); params.push(JSON.stringify(updates.customFields)); }
+    if (updates.enabledFields !== undefined) { setClauses.push('enabledFields = ?'); params.push(JSON.stringify(updates.enabledFields)); }
 
     if (setClauses.length === 0) return;
 
