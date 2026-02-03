@@ -273,6 +273,9 @@ export const StuffOrganizer = () => {
               categoryId: item.categoryId,
               path: item.path,
               coverPath: item.coverPath,
+              season: item.season ?? null,
+              episode: item.episode ?? null,
+              watched: item.watched ?? false,
             });
           });
         }}

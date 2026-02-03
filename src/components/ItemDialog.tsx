@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Upload, Link, X, Loader2 } from 'lucide-react';
 import { compressImage, formatBytes, estimateBase64Size } from '@/lib/imageUtils';
 
@@ -50,6 +51,9 @@ export const ItemDialog = ({
     categoryId: '',
     path: '',
     coverPath: '',
+    season: '',
+    episode: '',
+    watched: false,
   });
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
@@ -69,6 +73,9 @@ export const ItemDialog = ({
         categoryId: item.categoryId,
         path: item.path,
         coverPath: item.coverPath,
+        season: item.season?.toString() || '',
+        episode: item.episode?.toString() || '',
+        watched: item.watched || false,
       });
     } else {
       const defaultCat = defaultCategoryId && defaultCategoryId !== 'all' 
@@ -84,6 +91,9 @@ export const ItemDialog = ({
         categoryId: defaultCat,
         path: '',
         coverPath: '',
+        season: '',
+        episode: '',
+        watched: false,
       });
     }
   }, [item, defaultCategoryId, categories, open]);
@@ -103,6 +113,9 @@ export const ItemDialog = ({
       categoryId: formData.categoryId,
       path: formData.path.trim(),
       coverPath: finalCoverPath,
+      season: formData.season ? parseInt(formData.season) : null,
+      episode: formData.episode ? parseInt(formData.episode) : null,
+      watched: formData.watched,
     };
 
     if (!itemData.name) return;
@@ -162,6 +175,44 @@ export const ItemDialog = ({
                 onChange={(e) => setFormData(prev => ({ ...prev, rating: e.target.value }))}
                 placeholder="8.5"
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="season">Season</Label>
+              <Input
+                id="season"
+                type="number"
+                min="1"
+                value={formData.season}
+                onChange={(e) => setFormData(prev => ({ ...prev, season: e.target.value }))}
+                placeholder="1"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="episode">Episode</Label>
+              <Input
+                id="episode"
+                type="number"
+                min="1"
+                value={formData.episode}
+                onChange={(e) => setFormData(prev => ({ ...prev, episode: e.target.value }))}
+                placeholder="1"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Status</Label>
+              <div className="flex items-center gap-2 h-10">
+                <Checkbox
+                  id="watched"
+                  checked={formData.watched}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, watched: checked === true }))}
+                />
+                <Label htmlFor="watched" className="text-sm font-normal cursor-pointer">
+                  Watched / Completed
+                </Label>
+              </div>
             </div>
           </div>
 

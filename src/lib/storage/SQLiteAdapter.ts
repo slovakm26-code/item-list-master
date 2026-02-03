@@ -344,6 +344,9 @@ export class SQLiteAdapter implements StorageAdapter {
       addedDate: row.addedDate,
       coverPath: row.coverPath || '',
       orderIndex: row.orderIndex || 0,
+      season: row.season ?? null,
+      episode: row.episode ?? null,
+      watched: row.watched === 1 || row.watched === true || false,
     };
   }
 

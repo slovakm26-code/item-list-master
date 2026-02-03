@@ -39,6 +39,9 @@ const sampleItems: Item[] = [
     addedDate: new Date().toISOString(),
     coverPath: '',
     orderIndex: 0,
+    season: null,
+    episode: null,
+    watched: true,
   },
   {
     id: generateId(),
@@ -52,6 +55,9 @@ const sampleItems: Item[] = [
     addedDate: new Date().toISOString(),
     coverPath: '',
     orderIndex: 0,
+    season: 5,
+    episode: 16,
+    watched: true,
   },
   {
     id: generateId(),
@@ -65,6 +71,9 @@ const sampleItems: Item[] = [
     addedDate: new Date().toISOString(),
     coverPath: '',
     orderIndex: 0,
+    season: null,
+    episode: null,
+    watched: false,
   },
 ];
 

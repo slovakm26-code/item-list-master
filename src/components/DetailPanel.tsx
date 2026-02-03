@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Save, X, Star, ChevronUp, ChevronDown, GripHorizontal, Film } from 'lucide-react';
+import { Pencil, Save, X, Star, ChevronUp, ChevronDown, GripHorizontal, Film, Check } from 'lucide-react';
 import { Item, Category } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
 import { getIconByName, emojiToIconMap } from './IconPicker';
 
 interface DetailPanelProps {
@@ -49,6 +50,9 @@ export const DetailPanel = ({
         description: item.description,
         path: item.path,
         categoryId: item.categoryId,
+        season: item.season,
+        episode: item.episode,
+        watched: item.watched,
       });
       setIsEditing(true);
     }
@@ -254,7 +258,7 @@ export const DetailPanel = ({
                 )}
 
                 {/* Meta info - bottom */}
-                {(isEditing || item.year || item.genres.length > 0 || category) && (
+                {(isEditing || item.year || item.genres.length > 0 || category || item.season || item.episode) && (
                   <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
                     {isEditing ? (
                       <>
@@ -265,6 +269,26 @@ export const DetailPanel = ({
                             value={editData.year || ''}
                             onChange={(e) => setEditData(prev => ({ ...prev, year: parseInt(e.target.value) || null }))}
                             className="h-7 w-20"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span>Season:</span>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={editData.season || ''}
+                            onChange={(e) => setEditData(prev => ({ ...prev, season: parseInt(e.target.value) || null }))}
+                            className="h-7 w-16"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span>Episode:</span>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={editData.episode || ''}
+                            onChange={(e) => setEditData(prev => ({ ...prev, episode: parseInt(e.target.value) || null }))}
+                            className="h-7 w-16"
                           />
                         </div>
                         <div className="flex items-center gap-2">
@@ -303,12 +327,38 @@ export const DetailPanel = ({
                             </SelectContent>
                           </Select>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="watched-edit"
+                            checked={editData.watched || false}
+                            onCheckedChange={(checked) => setEditData(prev => ({ ...prev, watched: checked === true }))}
+                          />
+                          <label htmlFor="watched-edit" className="cursor-pointer">Watched</label>
+                        </div>
                       </>
                     ) : (
                       <>
+                        {item.watched && (
+                          <>
+                            <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                              <Check className="w-3.5 h-3.5" />
+                              Watched
+                            </span>
+                            <span>•</span>
+                          </>
+                        )}
                         {item.year && (
                           <>
                             <span>Year: <span className="text-foreground">{item.year}</span></span>
+                            {(item.season || item.episode || item.genres.length > 0 || category) && <span>•</span>}
+                          </>
+                        )}
+                        {(item.season || item.episode) && (
+                          <>
+                            <span>
+                              {item.season && <>S{item.season.toString().padStart(2, '0')}</>}
+                              {item.episode && <>E{item.episode.toString().padStart(2, '0')}</>}
+                            </span>
                             {(item.genres.length > 0 || category) && <span>•</span>}
                           </>
                         )}
