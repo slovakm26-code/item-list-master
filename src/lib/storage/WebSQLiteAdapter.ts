@@ -493,6 +493,9 @@ export class WebSQLiteAdapter implements StorageAdapter {
       addedDate: obj.addedDate,
       coverPath: obj.coverPath || '',
       orderIndex: obj.orderIndex || 0,
+      season: obj.season ?? null,
+      episode: obj.episode ?? null,
+      watched: obj.watched === 1 || obj.watched === true || false,
     };
   }
 

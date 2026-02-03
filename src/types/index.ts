@@ -19,6 +19,11 @@ export interface Item {
   addedDate: string;
   coverPath: string;
   orderIndex: number;
+  // Series-specific fields
+  season: number | null;
+  episode: number | null;
+  // Watch status
+  watched: boolean;
 }
 
 export interface ColumnWidth {

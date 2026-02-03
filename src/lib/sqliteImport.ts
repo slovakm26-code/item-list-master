@@ -171,6 +171,9 @@ export const parseSQLiteBackup = async (
         addedDate: typeof addedDate === 'string' ? addedDate : new Date().toISOString(),
         coverPath: typeof coverPath === 'string' ? coverPath : '',
         orderIndex: index,
+        season: null,
+        episode: null,
+        watched: false,
       };
     });
     
