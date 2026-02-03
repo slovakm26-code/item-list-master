@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
-import { useAppState } from '@/hooks/useAppState';
+import { useStorage } from '@/hooks/useStorage';
 import { useUIPreferences } from '@/hooks/useUIPreferences';
 import { useFileSystemStorage } from '@/hooks/useFileSystemStorage';
 import { Toolbar } from '@/components/Toolbar';
@@ -15,11 +15,18 @@ import { Item, SortableColumn, CustomFieldFilter as CustomFieldFilterType } from
 import { createBackup } from '@/lib/database';
 import { downloadExportWithImages, importDatabaseWithImages } from '@/lib/exportWithImages';
 import { toast } from 'sonner';
+import { Loader2, AlertCircle, Database } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 export const StuffOrganizer = () => {
   const {
     state,
     replaceState,
+    isLoading,
+    isReady,
+    error,
+    storageInfo,
     // Categories
     addCategory,
     updateCategory,
@@ -46,7 +53,7 @@ export const StuffOrganizer = () => {
     filteredItems,
     selectedItem,
     getCategoryItemCount,
-  } = useAppState();
+  } = useStorage();
 
   const {
     preferences,
@@ -272,8 +279,49 @@ export const StuffOrganizer = () => {
     toast.success('Backup created successfully');
   };
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4 bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-lg text-muted-foreground">Načítavam databázu...</p>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen p-8 bg-background">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Chyba pri načítaní</AlertTitle>
+          <AlertDescription className="mt-2">
+            <p className="mb-4">{error}</p>
+            <Button 
+              variant="outline" 
+              onClick={() => window.location.reload()}
+            >
+              Skúsiť znova
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Not ready yet (shouldn't happen, but safety check)
+  if (!isReady) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4 bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="text-muted-foreground">Inicializujem...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="app-container">
+    <div className="app-container flex flex-col h-screen">
       <input
         ref={fileInputRef}
         type="file"
@@ -298,7 +346,7 @@ export const StuffOrganizer = () => {
         onCustomFieldFiltersChange={setCustomFieldFilters}
       />
 
-      <div className="app-main">
+      <div className="app-main flex-1 overflow-hidden">
         {/* Top section: Sidebar + Table */}
         <div className="app-top-section">
           <CategoryTree
@@ -348,6 +396,19 @@ export const StuffOrganizer = () => {
           onToggleVisible={toggleDetailPanel}
         />
       </div>
+
+      {/* Footer with storage info */}
+      {storageInfo && (
+        <footer className="flex items-center justify-between px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <Database className="h-3 w-3" />
+            <span>SQLite ({storageInfo.type})</span>
+          </div>
+          <div>
+            <span className="font-medium">{storageInfo.itemCount.toLocaleString()}</span> položiek v databáze
+          </div>
+        </footer>
+      )}
 
       <ItemDialog
         open={itemDialogOpen}
