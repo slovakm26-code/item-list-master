@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trash2, RotateCcw, Download } from 'lucide-react';
+import { Trash2, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -18,7 +18,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { getBackups, restoreBackup, deleteBackup } from '@/lib/database';
 import { AppState } from '@/types';
 
 interface BackupDialogProps {
@@ -26,6 +25,37 @@ interface BackupDialogProps {
   onOpenChange: (open: boolean) => void;
   onRestore: (state: AppState) => void;
 }
+
+// Local storage backup keys prefix
+const BACKUP_PREFIX = 'stuff_organizer_backup_';
+
+// Get all backups from localStorage
+const getBackups = (): string[] => {
+  const backups: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(BACKUP_PREFIX)) {
+      backups.push(key);
+    }
+  }
+  return backups.sort().reverse(); // Most recent first
+};
+
+// Restore backup from localStorage
+const restoreBackup = (key: string): AppState | null => {
+  try {
+    const data = localStorage.getItem(key);
+    if (!data) return null;
+    return JSON.parse(data) as AppState;
+  } catch {
+    return null;
+  }
+};
+
+// Delete backup from localStorage
+const deleteBackup = (key: string): void => {
+  localStorage.removeItem(key);
+};
 
 export const BackupDialog = ({
   open,
@@ -44,7 +74,7 @@ export const BackupDialog = ({
   }, [open]);
 
   const formatBackupName = (key: string) => {
-    const timestamp = key.replace('stuff_organizer_backup_', '');
+    const timestamp = key.replace(BACKUP_PREFIX, '');
     const parts = timestamp.split('T');
     if (parts.length === 2) {
       return `${parts[0]} ${parts[1].replace(/-/g, ':')}`;

@@ -11,10 +11,6 @@ import { WebSQLiteAdapter } from './WebSQLiteAdapter';
 export * from './StorageAdapter';
 export { WebSQLiteAdapter } from './WebSQLiteAdapter';
 
-// Re-export pre spätná kompatibilitu (deprecated)
-export { LocalStorageAdapter } from './LocalStorageAdapter';
-export { IndexedDBAdapter } from './IndexedDBAdapter';
-
 /**
  * Create SQLite storage adapter
  * - Web: WebSQLite (sql.js with IndexedDB persistence)
