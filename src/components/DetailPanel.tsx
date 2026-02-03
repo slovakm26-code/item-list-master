@@ -53,6 +53,7 @@ export const DetailPanel = ({
         season: item.season,
         episode: item.episode,
         watched: item.watched,
+        customFieldValues: item.customFieldValues ? { ...item.customFieldValues } : {},
       });
       setIsEditing(true);
     }
@@ -398,28 +399,115 @@ export const DetailPanel = ({
                 )}
                 
                 {/* Custom Fields */}
-                {!isEditing && item.customFieldValues && category?.customFields && category.customFields.length > 0 && (
-                  <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-                    {category.customFields.map(field => {
-                      const value = item.customFieldValues?.[field.id];
-                      if (value === undefined || value === null || value === '') return null;
-                      
-                      let displayValue: string;
-                      if (field.type === 'checkbox') {
-                        displayValue = value ? 'Yes' : 'No';
-                      } else if (field.type === 'date' && typeof value === 'string') {
-                        displayValue = new Date(value).toLocaleDateString('sk-SK');
-                      } else {
-                        displayValue = String(value);
-                      }
-                      
-                      return (
-                        <span key={field.id}>
-                          {field.name}: <span className="text-foreground">{displayValue}</span>
-                        </span>
-                      );
-                    })}
-                  </div>
+                {category?.customFields && category.customFields.length > 0 && (
+                  isEditing ? (
+                    <div className="mt-3 grid gap-2">
+                      {category.customFields.map(field => {
+                        const value = editData.customFieldValues?.[field.id] ?? '';
+                        
+                        return (
+                          <div key={field.id} className="flex items-center gap-2 text-sm">
+                            <span className="text-muted-foreground w-24 shrink-0">{field.name}:</span>
+                            {field.type === 'checkbox' ? (
+                              <Checkbox
+                                checked={!!value}
+                                onCheckedChange={(checked) => setEditData(prev => ({
+                                  ...prev,
+                                  customFieldValues: {
+                                    ...prev.customFieldValues,
+                                    [field.id]: checked === true
+                                  }
+                                }))}
+                              />
+                            ) : field.type === 'select' ? (
+                              <Select
+                                value={String(value || '')}
+                                onValueChange={(val) => setEditData(prev => ({
+                                  ...prev,
+                                  customFieldValues: {
+                                    ...prev.customFieldValues,
+                                    [field.id]: val
+                                  }
+                                }))}
+                              >
+                                <SelectTrigger className="h-7 w-40">
+                                  <SelectValue placeholder="Select..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {field.options?.map(opt => (
+                                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : field.type === 'number' ? (
+                              <Input
+                                type="number"
+                                value={typeof value === 'number' ? value : (typeof value === 'string' ? value : '')}
+                                onChange={(e) => setEditData(prev => ({
+                                  ...prev,
+                                  customFieldValues: {
+                                    ...prev.customFieldValues,
+                                    [field.id]: e.target.value ? parseFloat(e.target.value) : null
+                                  }
+                                }))}
+                                className="h-7 w-24"
+                              />
+                            ) : field.type === 'date' ? (
+                              <Input
+                                type="date"
+                                value={typeof value === 'string' ? value : ''}
+                                onChange={(e) => setEditData(prev => ({
+                                  ...prev,
+                                  customFieldValues: {
+                                    ...prev.customFieldValues,
+                                    [field.id]: e.target.value
+                                  }
+                                }))}
+                                className="h-7 w-36"
+                              />
+                            ) : (
+                              <Input
+                                type="text"
+                                value={typeof value === 'string' ? value : ''}
+                                onChange={(e) => setEditData(prev => ({
+                                  ...prev,
+                                  customFieldValues: {
+                                    ...prev.customFieldValues,
+                                    [field.id]: e.target.value
+                                  }
+                                }))}
+                                className="h-7 flex-1"
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    item.customFieldValues && Object.keys(item.customFieldValues).length > 0 && (
+                      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+                        {category.customFields.map(field => {
+                          const value = item.customFieldValues?.[field.id];
+                          if (value === undefined || value === null || value === '') return null;
+                          
+                          let displayValue: string;
+                          if (field.type === 'checkbox') {
+                            displayValue = value ? 'Yes' : 'No';
+                          } else if (field.type === 'date' && typeof value === 'string') {
+                            displayValue = new Date(value).toLocaleDateString('sk-SK');
+                          } else {
+                            displayValue = String(value);
+                          }
+                          
+                          return (
+                            <span key={field.id}>
+                              {field.name}: <span className="text-foreground">{displayValue}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )
+                  )
                 )}
                 
                 {/* Added date - always show */}

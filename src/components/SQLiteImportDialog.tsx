@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react';
+import React, { useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Item, Category } from '@/types';
 import { parseSQLiteBackup, getSQLiteTableInfo } from '@/lib/sqliteImport';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import {
   Dialog,
   DialogContent,
@@ -28,20 +29,26 @@ interface SQLiteImportDialogProps {
   onImport: (items: Item[]) => void;
 }
 
-export const SQLiteImportDialog = ({
+export const SQLiteImportDialog = forwardRef<HTMLDivElement, SQLiteImportDialogProps>(({
   open,
   onOpenChange,
   categories,
   onImport,
-}: SQLiteImportDialogProps) => {
+}, ref) => {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importedCount, setImportedCount] = useState(0);
   const [tableInfo, setTableInfo] = useState<{
     tables: string[];
     rowCounts: Record<string, number>;
   } | null>(null);
   const [targetCategoryId, setTargetCategoryId] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  useImperativeHandle(ref, () => containerRef.current as HTMLDivElement);
 
   const movableCategories = categories.filter(c => c.id !== 'all');
 
@@ -73,14 +80,35 @@ export const SQLiteImportDialog = ({
     if (!file || !targetCategoryId) return;
 
     setLoading(true);
+    setImporting(true);
+    setImportProgress(0);
+    setImportedCount(0);
+    
     try {
       const result = await parseSQLiteBackup(file, targetCategoryId);
       
       if (result.items.length === 0) {
         toast.error('No items found in database');
+        setImporting(false);
         return;
       }
 
+      // Simulate progress for batch import
+      const batchSize = 100;
+      const totalItems = result.items.length;
+      
+      for (let i = 0; i < totalItems; i += batchSize) {
+        const batch = result.items.slice(i, Math.min(i + batchSize, totalItems));
+        const progress = Math.min(100, Math.round(((i + batch.length) / totalItems) * 100));
+        setImportProgress(progress);
+        setImportedCount(i + batch.length);
+        
+        // Small delay to show progress
+        if (totalItems > 500) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+      }
+      
       onImport(result.items);
       toast.success(`Successfully imported ${result.items.length} items`);
       handleClose();
@@ -88,6 +116,7 @@ export const SQLiteImportDialog = ({
       toast.error(error instanceof Error ? error.message : 'Failed to import database');
     } finally {
       setLoading(false);
+      setImporting(false);
     }
   };
 
@@ -166,8 +195,24 @@ export const SQLiteImportDialog = ({
             </div>
           )}
 
+          {/* Progress Bar */}
+          {importing && (
+            <div className="space-y-3">
+              <Progress value={importProgress} className="h-3" />
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>Importing items...</span>
+                <span className="font-mono">
+                  {importedCount.toLocaleString()} / {totalRows.toLocaleString()}
+                </span>
+              </div>
+              <div className="text-center text-lg font-semibold">
+                {Math.round(importProgress)}%
+              </div>
+            </div>
+          )}
+
           {/* Target Category */}
-          {file && tableInfo && (
+          {file && tableInfo && !importing && (
             <div className="grid gap-2">
               <Label>Import to Category</Label>
               <Select
@@ -210,4 +255,4 @@ export const SQLiteImportDialog = ({
       </DialogContent>
     </Dialog>
   );
-};
+});
