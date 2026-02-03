@@ -67,18 +67,20 @@ export class SQLiteAdapter implements StorageAdapter {
       PRAGMA temp_store = MEMORY;
       PRAGMA mmap_size = 268435456; -- 256MB memory-mapped I/O
 
-      -- Categories table
+      -- Categories table with custom fields support
       CREATE TABLE IF NOT EXISTS categories (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         parentId TEXT,
         orderIndex INTEGER DEFAULT 0,
         icon TEXT,
-        emoji TEXT
+        emoji TEXT,
+        customFields TEXT,
+        enabledFields TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_categories_order ON categories(orderIndex);
 
-      -- Items table with optimized schema
+      -- Items table with optimized schema including custom fields
       CREATE TABLE IF NOT EXISTS items (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -91,6 +93,10 @@ export class SQLiteAdapter implements StorageAdapter {
         addedDate TEXT,
         coverPath TEXT,
         orderIndex INTEGER DEFAULT 0,
+        season INTEGER,
+        episode INTEGER,
+        watched INTEGER DEFAULT 0,
+        customFieldValues TEXT,
         FOREIGN KEY (categoryId) REFERENCES categories(id)
       );
       
@@ -146,7 +152,7 @@ export class SQLiteAdapter implements StorageAdapter {
       );
 
       -- Store schema version
-      INSERT OR IGNORE INTO settings (key, value) VALUES ('schema_version', '2');
+      INSERT OR IGNORE INTO settings (key, value) VALUES ('schema_version', '3');
     `);
 
     this.ready = true;
@@ -188,27 +194,34 @@ export class SQLiteAdapter implements StorageAdapter {
     await this.sqlite!.exec('BEGIN TRANSACTION');
     
     try {
-      // Save categories
+      // Save categories with custom fields
       await this.sqlite!.exec('DELETE FROM categories');
       for (const cat of state.categories) {
         await this.sqlite!.run(
-          `INSERT INTO categories (id, name, parentId, orderIndex, icon, emoji) 
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [cat.id, cat.name, cat.parentId, cat.orderIndex, cat.icon, cat.emoji]
+          `INSERT INTO categories (id, name, parentId, orderIndex, icon, emoji, customFields, enabledFields) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            cat.id, cat.name, cat.parentId, cat.orderIndex, 
+            cat.icon, cat.emoji,
+            cat.customFields ? JSON.stringify(cat.customFields) : null,
+            cat.enabledFields ? JSON.stringify(cat.enabledFields) : null
+          ]
         );
       }
 
-      // Save items
+      // Save items with custom fields
       await this.sqlite!.exec('DELETE FROM items');
       for (const item of state.items) {
         await this.sqlite!.run(
-          `INSERT INTO items (id, name, year, rating, genres, description, categoryId, path, addedDate, coverPath, orderIndex)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO items (id, name, year, rating, genres, description, categoryId, path, addedDate, coverPath, orderIndex, season, episode, watched, customFieldValues)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             item.id, item.name, item.year, item.rating,
             JSON.stringify(item.genres), item.description,
             item.categoryId, item.path, item.addedDate,
-            item.coverPath, item.orderIndex
+            item.coverPath, item.orderIndex,
+            item.season, item.episode, item.watched ? 1 : 0,
+            item.customFieldValues ? JSON.stringify(item.customFieldValues) : null
           ]
         );
       }
@@ -348,6 +361,7 @@ export class SQLiteAdapter implements StorageAdapter {
       season: row.season ?? null,
       episode: row.episode ?? null,
       watched: row.watched === 1 || row.watched === true || false,
+      customFieldValues: row.customFieldValues ? JSON.parse(row.customFieldValues) : {},
     };
   }
 
@@ -371,13 +385,15 @@ export class SQLiteAdapter implements StorageAdapter {
 
   async addItem(item: Item): Promise<void> {
     await this.sqlite!.run(
-      `INSERT INTO items (id, name, year, rating, genres, description, categoryId, path, addedDate, coverPath, orderIndex)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO items (id, name, year, rating, genres, description, categoryId, path, addedDate, coverPath, orderIndex, season, episode, watched, customFieldValues)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         item.id, item.name, item.year, item.rating,
         JSON.stringify(item.genres), item.description,
         item.categoryId, item.path, item.addedDate,
-        item.coverPath, item.orderIndex
+        item.coverPath, item.orderIndex,
+        item.season, item.episode, item.watched ? 1 : 0,
+        item.customFieldValues ? JSON.stringify(item.customFieldValues) : null
       ]
     );
   }
@@ -432,6 +448,13 @@ export class SQLiteAdapter implements StorageAdapter {
     if (updates.path !== undefined) { setClauses.push('path = ?'); params.push(updates.path); }
     if (updates.coverPath !== undefined) { setClauses.push('coverPath = ?'); params.push(updates.coverPath); }
     if (updates.orderIndex !== undefined) { setClauses.push('orderIndex = ?'); params.push(updates.orderIndex); }
+    if (updates.season !== undefined) { setClauses.push('season = ?'); params.push(updates.season); }
+    if (updates.episode !== undefined) { setClauses.push('episode = ?'); params.push(updates.episode); }
+    if (updates.watched !== undefined) { setClauses.push('watched = ?'); params.push(updates.watched ? 1 : 0); }
+    if (updates.customFieldValues !== undefined) { 
+      setClauses.push('customFieldValues = ?'); 
+      params.push(JSON.stringify(updates.customFieldValues)); 
+    }
 
     if (setClauses.length === 0) return;
 
@@ -457,14 +480,21 @@ export class SQLiteAdapter implements StorageAdapter {
       orderIndex: row.orderIndex,
       icon: row.icon,
       emoji: row.emoji,
+      customFields: row.customFields ? JSON.parse(row.customFields) : [],
+      enabledFields: row.enabledFields ? JSON.parse(row.enabledFields) : undefined,
     }));
   }
 
   async addCategory(category: Category): Promise<void> {
     await this.sqlite!.run(
-      `INSERT INTO categories (id, name, parentId, orderIndex, icon, emoji)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [category.id, category.name, category.parentId, category.orderIndex, category.icon, category.emoji]
+      `INSERT INTO categories (id, name, parentId, orderIndex, icon, emoji, customFields, enabledFields)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        category.id, category.name, category.parentId, category.orderIndex, 
+        category.icon, category.emoji,
+        category.customFields ? JSON.stringify(category.customFields) : null,
+        category.enabledFields ? JSON.stringify(category.enabledFields) : null
+      ]
     );
   }
 
@@ -477,6 +507,14 @@ export class SQLiteAdapter implements StorageAdapter {
     if (updates.orderIndex !== undefined) { setClauses.push('orderIndex = ?'); params.push(updates.orderIndex); }
     if (updates.icon !== undefined) { setClauses.push('icon = ?'); params.push(updates.icon); }
     if (updates.emoji !== undefined) { setClauses.push('emoji = ?'); params.push(updates.emoji); }
+    if (updates.customFields !== undefined) { 
+      setClauses.push('customFields = ?'); 
+      params.push(JSON.stringify(updates.customFields)); 
+    }
+    if (updates.enabledFields !== undefined) { 
+      setClauses.push('enabledFields = ?'); 
+      params.push(JSON.stringify(updates.enabledFields)); 
+    }
 
     if (setClauses.length === 0) return;
 

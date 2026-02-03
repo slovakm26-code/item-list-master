@@ -41,15 +41,19 @@ function initDatabase() {
 
   // Schéma
   db.exec(`
+    -- Categories table with custom fields support
     CREATE TABLE IF NOT EXISTS categories (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       parentId TEXT,
       orderIndex INTEGER DEFAULT 0,
       icon TEXT,
-      emoji TEXT
+      emoji TEXT,
+      customFields TEXT,
+      enabledFields TEXT
     );
 
+    -- Items table with all fields including custom fields
     CREATE TABLE IF NOT EXISTS items (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -62,6 +66,10 @@ function initDatabase() {
       addedDate TEXT,
       coverPath TEXT,
       orderIndex INTEGER DEFAULT 0,
+      season INTEGER,
+      episode INTEGER,
+      watched INTEGER DEFAULT 0,
+      customFieldValues TEXT,
       FOREIGN KEY (categoryId) REFERENCES categories(id)
     );
 
@@ -110,7 +118,7 @@ function initDatabase() {
       value TEXT
     );
 
-    INSERT OR IGNORE INTO settings (key, value) VALUES ('schema_version', '2');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('schema_version', '3');
   `);
 
   console.log('Database initialized at:', DB_PATH);
@@ -129,11 +137,11 @@ let stmts: {
 function prepareStatements() {
   stmts = {
     insertItem: db.prepare(`
-      INSERT INTO items (id, name, year, rating, genres, description, categoryId, path, addedDate, coverPath, orderIndex)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO items (id, name, year, rating, genres, description, categoryId, path, addedDate, coverPath, orderIndex, season, episode, watched, customFieldValues)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     updateItem: db.prepare(`
-      UPDATE items SET name=?, year=?, rating=?, genres=?, description=?, categoryId=?, path=?, coverPath=?, orderIndex=?
+      UPDATE items SET name=?, year=?, rating=?, genres=?, description=?, categoryId=?, path=?, coverPath=?, orderIndex=?, season=?, episode=?, watched=?, customFieldValues=?
       WHERE id=?
     `),
     deleteItem: db.prepare('DELETE FROM items WHERE id = ?'),
@@ -189,7 +197,9 @@ function setupSQLiteIPC() {
           item.id, item.name, item.year, item.rating,
           JSON.stringify(item.genres), item.description,
           item.categoryId, item.path, item.addedDate,
-          item.coverPath, item.orderIndex
+          item.coverPath, item.orderIndex,
+          item.season, item.episode, item.watched ? 1 : 0,
+          item.customFieldValues ? JSON.stringify(item.customFieldValues) : null
         );
       }
     });
