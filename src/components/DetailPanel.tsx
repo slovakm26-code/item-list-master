@@ -340,7 +340,7 @@ export const DetailPanel = ({
                       <>
                         {item.watched && (
                           <>
-                            <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                            <span className="flex items-center gap-1 text-foreground">
                               <Check className="w-3.5 h-3.5" />
                               Watched
                             </span>
