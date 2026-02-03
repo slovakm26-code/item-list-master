@@ -484,29 +484,28 @@ export const DetailPanel = ({
                       })}
                     </div>
                   ) : (
-                    item.customFieldValues && Object.keys(item.customFieldValues).length > 0 && (
-                      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-                        {category.customFields.map(field => {
-                          const value = item.customFieldValues?.[field.id];
-                          if (value === undefined || value === null || value === '') return null;
-                          
-                          let displayValue: string;
-                          if (field.type === 'checkbox') {
-                            displayValue = value ? 'Yes' : 'No';
-                          } else if (field.type === 'date' && typeof value === 'string') {
-                            displayValue = new Date(value).toLocaleDateString('sk-SK');
-                          } else {
-                            displayValue = String(value);
-                          }
-                          
-                          return (
-                            <span key={field.id}>
-                              {field.name}: <span className="text-foreground">{displayValue}</span>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )
+                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+                      {category.customFields.map(field => {
+                        const value = item.customFieldValues?.[field.id];
+                        
+                        let displayValue: string;
+                        if (value === undefined || value === null || value === '') {
+                          displayValue = '-';
+                        } else if (field.type === 'checkbox') {
+                          displayValue = value ? 'Yes' : 'No';
+                        } else if (field.type === 'date' && typeof value === 'string') {
+                          displayValue = new Date(value).toLocaleDateString('sk-SK');
+                        } else {
+                          displayValue = String(value);
+                        }
+                        
+                        return (
+                          <span key={field.id}>
+                            {field.name}: <span className="text-foreground">{displayValue}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
                   )
                 )}
                 
