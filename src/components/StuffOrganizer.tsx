@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useAppState } from '@/hooks/useAppState';
 import { useUIPreferences } from '@/hooks/useUIPreferences';
 import { useFileSystemStorage } from '@/hooks/useFileSystemStorage';
@@ -66,12 +66,124 @@ export const StuffOrganizer = () => {
   // File system storage hook
   const fileSystemStorage = useFileSystemStorage();
 
-  // Auto-save to file system when connected
+  // Track last saved data hash to prevent unnecessary saves
+  const lastSavedHashRef = useRef<string>('');
+
+  // Auto-save to file system when connected - ONLY when data changes
   useEffect(() => {
-    if (fileSystemStorage.isConnected) {
+    if (!fileSystemStorage.isConnected) return;
+
+    // Create hash of actual data (not UI state like selection)
+    const dataHash = JSON.stringify({
+      items: state.items,
+      categories: state.categories,
+    });
+
+    // Only save if data actually changed
+    if (dataHash !== lastSavedHashRef.current) {
+      lastSavedHashRef.current = dataHash;
       fileSystemStorage.save(state).catch(console.error);
     }
   }, [state.items, state.categories, fileSystemStorage.isConnected]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs
+      const target = e.target as HTMLElement;
+      const isInputFocused = target.tagName === 'INPUT' || 
+                             target.tagName === 'TEXTAREA' || 
+                             target.isContentEditable;
+
+      // Ctrl/Cmd + F - Focus search (works even in inputs)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        const searchInput = document.querySelector<HTMLInputElement>('[data-search-input]');
+        searchInput?.focus();
+        searchInput?.select();
+        return;
+      }
+
+      // Skip other shortcuts if in input
+      if (isInputFocused) return;
+
+      // Ctrl/Cmd + N - New item
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        setEditingItem(null);
+        setItemDialogOpen(true);
+        return;
+      }
+
+      // Delete - Delete selected items
+      if (e.key === 'Delete' && state.selectedItemIds.length > 0) {
+        e.preventDefault();
+        deleteItems(state.selectedItemIds);
+        toast.success(`${state.selectedItemIds.length} item(s) deleted`);
+        return;
+      }
+
+      // Escape - Clear selection
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSelectedItems([]);
+        return;
+      }
+
+      // Enter - Edit selected item (if single item selected)
+      if (e.key === 'Enter' && state.selectedItemIds.length === 1) {
+        e.preventDefault();
+        const item = filteredItems.find(i => i.id === state.selectedItemIds[0]);
+        if (item) {
+          setEditingItem(item);
+          setItemDialogOpen(true);
+        }
+        return;
+      }
+
+      // Arrow Up/Down - Navigate items
+      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && filteredItems.length > 0) {
+        e.preventDefault();
+        
+        if (state.selectedItemIds.length === 0) {
+          // Select first item
+          setSelectedItems([filteredItems[0].id]);
+        } else {
+          const currentIndex = filteredItems.findIndex(
+            i => i.id === state.selectedItemIds[state.selectedItemIds.length - 1]
+          );
+          
+          let newIndex: number;
+          if (e.key === 'ArrowDown') {
+            newIndex = Math.min(currentIndex + 1, filteredItems.length - 1);
+          } else {
+            newIndex = Math.max(currentIndex - 1, 0);
+          }
+
+          if (e.shiftKey) {
+            // Multi-select with Shift+Arrow
+            const newId = filteredItems[newIndex].id;
+            if (!state.selectedItemIds.includes(newId)) {
+              setSelectedItems([...state.selectedItemIds, newId]);
+            }
+          } else {
+            setSelectedItems([filteredItems[newIndex].id]);
+          }
+        }
+        return;
+      }
+
+      // Ctrl/Cmd + A - Select all visible items
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        setSelectedItems(filteredItems.map(i => i.id));
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state.selectedItemIds, filteredItems, deleteItems, setSelectedItems]);
 
   // Convert column widths to object format
   const columnWidths = useMemo(() => {
