@@ -16,6 +16,7 @@ import {
   Music,
   BookOpen,
   Package,
+  Settings2,
   type LucideIcon,
 } from 'lucide-react';
 import { Category } from '@/types';
@@ -38,6 +39,7 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { IconPicker, getIconByName, emojiToIconMap } from './IconPicker';
+import { CategoryFieldsDialog } from './CategoryFieldsDialog';
 
 // Default icon mapping for built-in categories
 const defaultCategoryIcons: Record<string, LucideIcon> = {
@@ -75,6 +77,7 @@ interface TreeNodeProps {
   onMoveUp: (id: string) => void;
   onMoveDown: (id: string) => void;
   onAddSubcategory: (parentId: string) => void;
+  onConfigureFields: (category: Category) => void;
   getCategoryItemCount: (categoryId: string) => number;
 }
 
@@ -108,6 +111,7 @@ const TreeNode = ({
   onMoveUp,
   onMoveDown,
   onAddSubcategory,
+  onConfigureFields,
   getCategoryItemCount,
 }: TreeNodeProps) => {
   const children = categories
@@ -173,6 +177,10 @@ const TreeNode = ({
                 <Pencil className="w-4 h-4 mr-2" />
                 Edit
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onConfigureFields(category)}>
+                <Settings2 className="w-4 h-4 mr-2" />
+                Configure Fields
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onMoveUp(category.id)}>
                 <ArrowUp className="w-4 h-4 mr-2" />
@@ -212,6 +220,7 @@ const TreeNode = ({
               onMoveUp={onMoveUp}
               onMoveDown={onMoveDown}
               onAddSubcategory={onAddSubcategory}
+              onConfigureFields={onConfigureFields}
               getCategoryItemCount={getCategoryItemCount}
             />
           ))}
@@ -234,6 +243,7 @@ export const CategoryTree = ({
 }: CategoryTreeProps) => {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['all']));
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [configuringCategory, setConfiguringCategory] = useState<Category | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryIcon, setNewCategoryIcon] = useState('folder');
   const [addingToParent, setAddingToParent] = useState<string | null>(null);
@@ -335,10 +345,23 @@ export const CategoryTree = ({
             onMoveUp={onMoveUp}
             onMoveDown={onMoveDown}
             onAddSubcategory={openAddSubcategory}
+            onConfigureFields={setConfiguringCategory}
             getCategoryItemCount={getCategoryItemCount}
           />
         ))}
       </div>
+
+      {/* Configure Fields Dialog */}
+      <CategoryFieldsDialog
+        open={!!configuringCategory}
+        onOpenChange={(open) => !open && setConfiguringCategory(null)}
+        category={configuringCategory}
+        onSave={(updates) => {
+          if (configuringCategory) {
+            onUpdateCategory(configuringCategory.id, updates);
+          }
+        }}
+      />
 
       {/* Add Category Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
