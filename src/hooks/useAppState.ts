@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { Category, Item, AppState, SortableColumn } from '@/types';
+import { Category, Item, AppState, SortableColumn, CustomFieldFilter } from '@/types';
 import { initDatabase, saveDatabase, generateId } from '@/lib/database';
 
 // Debounced save to prevent excessive writes
@@ -307,6 +307,10 @@ export const useAppState = () => {
     }));
   }, []);
 
+  const setCustomFieldFilters = useCallback((filters: CustomFieldFilter[]) => {
+    setState(prev => ({ ...prev, customFieldFilters: filters }));
+  }, []);
+
   // Computed values
   const filteredItems = useMemo(() => {
     let items = state.items;
@@ -330,6 +334,27 @@ export const useAppState = () => {
         i.genres.some(g => g.toLowerCase().includes(query)) ||
         i.path.toLowerCase().includes(query)
       );
+    }
+
+    // Filter by custom fields
+    if (state.customFieldFilters && state.customFieldFilters.length > 0) {
+      items = items.filter(item => {
+        return state.customFieldFilters.every(filter => {
+          // Only apply filter if item is in the filter's category
+          if (item.categoryId !== filter.categoryId) {
+            return true; // Don't filter out items from other categories
+          }
+          
+          const fieldValue = item.customFieldValues?.[filter.fieldId];
+          if (fieldValue === undefined) return false;
+          
+          if (filter.operator === 'contains' && typeof fieldValue === 'string') {
+            return fieldValue.toLowerCase().includes(String(filter.value).toLowerCase());
+          }
+          
+          return fieldValue === filter.value;
+        });
+      });
     }
     
     // Sort
@@ -400,6 +425,7 @@ export const useAppState = () => {
     setSearchQuery,
     setSorting,
     setUseManualOrder,
+    setCustomFieldFilters,
     // Computed
     filteredItems,
     selectedItem,

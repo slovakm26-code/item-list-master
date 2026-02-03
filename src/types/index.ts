@@ -66,6 +66,13 @@ export interface UIPreferences {
   detailPanelVisible: boolean;
 }
 
+export interface CustomFieldFilter {
+  fieldId: string;
+  categoryId: string;
+  value: string | number | boolean;
+  operator?: 'equals' | 'contains' | 'gt' | 'lt';
+}
+
 export interface AppState {
   categories: Category[];
   items: Item[];
@@ -75,6 +82,7 @@ export interface AppState {
   sortColumn: keyof Item | null;
   sortDirection: 'asc' | 'desc';
   useManualOrder: boolean;
+  customFieldFilters: CustomFieldFilter[];
 }
 
 export interface DatabaseExport {

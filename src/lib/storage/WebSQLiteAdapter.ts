@@ -337,6 +337,7 @@ export class WebSQLiteAdapter implements StorageAdapter {
       sortColumn: uiState.sortColumn || 'name',
       sortDirection: uiState.sortDirection || 'asc',
       useManualOrder: uiState.useManualOrder || false,
+      customFieldFilters: uiState.customFieldFilters || [],
     };
   }
 

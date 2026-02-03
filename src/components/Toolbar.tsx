@@ -11,6 +11,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { useTheme } from '@/hooks/useTheme';
 import { useDebounce } from '@/hooks/useDebounce';
+import { CustomFieldFilter, CustomFieldFilterValue } from '@/components/CustomFieldFilter';
+import { Category, CustomFieldFilter as CustomFieldFilterType } from '@/types';
 
 interface ToolbarProps {
   searchQuery: string;
@@ -23,6 +25,9 @@ interface ToolbarProps {
   onOpenStorage: () => void;
   onOpenSQLiteImport: () => void;
   isStorageConnected?: boolean;
+  categories: Category[];
+  customFieldFilters: CustomFieldFilterType[];
+  onCustomFieldFiltersChange: (filters: CustomFieldFilterType[]) => void;
 }
 
 export const Toolbar = ({
@@ -36,6 +41,9 @@ export const Toolbar = ({
   onOpenStorage,
   onOpenSQLiteImport,
   isStorageConnected = false,
+  categories,
+  customFieldFilters,
+  onCustomFieldFiltersChange,
 }: ToolbarProps) => {
   const { theme, toggleTheme } = useTheme();
   const [localSearch, setLocalSearch] = useState(searchQuery);
@@ -55,6 +63,7 @@ export const Toolbar = ({
     <div className="app-toolbar">
       <Button 
         onClick={onAddItem} 
+        variant="ghost"
         size="sm" 
         className="gap-1.5 h-8"
       >
@@ -111,6 +120,12 @@ export const Toolbar = ({
           'Storage'
         )}
       </Button>
+
+      <CustomFieldFilter
+        categories={categories}
+        filters={customFieldFilters}
+        onFiltersChange={onCustomFieldFiltersChange}
+      />
 
       <div className="flex-1" />
 
