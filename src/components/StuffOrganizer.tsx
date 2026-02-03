@@ -10,7 +10,8 @@ import { ItemDialog } from '@/components/ItemDialog';
 import { BackupDialog } from '@/components/BackupDialog';
 import { StorageConnectionDialog } from '@/components/StorageConnectionDialog';
 import { SQLiteImportDialog } from '@/components/SQLiteImportDialog';
-import { Item, SortableColumn } from '@/types';
+import { CustomFieldFilter } from '@/components/CustomFieldFilter';
+import { Item, SortableColumn, CustomFieldFilter as CustomFieldFilterType } from '@/types';
 import { createBackup } from '@/lib/database';
 import { downloadExportWithImages, importDatabaseWithImages } from '@/lib/exportWithImages';
 import { toast } from 'sonner';
@@ -40,6 +41,7 @@ export const StuffOrganizer = () => {
     setSearchQuery,
     setSorting,
     setUseManualOrder,
+    setCustomFieldFilters,
     // Computed
     filteredItems,
     selectedItem,
@@ -179,6 +181,9 @@ export const StuffOrganizer = () => {
         onOpenStorage={() => setStorageDialogOpen(true)}
         onOpenSQLiteImport={() => setSqliteImportDialogOpen(true)}
         isStorageConnected={fileSystemStorage.isConnected}
+        categories={state.categories}
+        customFieldFilters={state.customFieldFilters || []}
+        onCustomFieldFiltersChange={setCustomFieldFilters}
       />
 
       <div className="app-main">

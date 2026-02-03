@@ -107,6 +107,7 @@ export const initDatabase = (): AppState => {
     sortColumn: 'name',
     sortDirection: 'asc',
     useManualOrder: false,
+    customFieldFilters: [],
   };
   
   saveDatabase(initialState);
