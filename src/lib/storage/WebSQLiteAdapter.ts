@@ -33,6 +33,7 @@ export class WebSQLiteAdapter implements StorageAdapter {
   private ready = false;
   private persistTimeout: ReturnType<typeof setTimeout> | null = null;
   private pendingPersist = false;
+  private fts5Available = false;
 
   async init(): Promise<void> {
     // Initialize sql.js with WASM
@@ -45,20 +46,42 @@ export class WebSQLiteAdapter implements StorageAdapter {
     
     if (savedData) {
       this.db = new SQL.Database(savedData);
+      // Check if FTS5 is available
+      this.fts5Available = await this.checkFTS5Support();
       // Run migrations if needed
       await this.runMigrations();
     } else {
       this.db = new SQL.Database();
+      // Check if FTS5 is available before creating tables
+      this.fts5Available = await this.checkFTS5Support();
       await this.createTables();
     }
 
+    console.log(`SQLite initialized. FTS5 available: ${this.fts5Available}`);
     this.ready = true;
+  }
+
+  /**
+   * Check if FTS5 module is available in sql.js
+   */
+  private async checkFTS5Support(): Promise<boolean> {
+    if (!this.db) return false;
+    
+    try {
+      // Try to create a test FTS5 table
+      this.db.run('CREATE VIRTUAL TABLE IF NOT EXISTS _fts5_test USING fts5(test)');
+      this.db.run('DROP TABLE IF EXISTS _fts5_test');
+      return true;
+    } catch (e) {
+      console.warn('FTS5 not available in sql.js, using LIKE fallback for search');
+      return false;
+    }
   }
 
   private async createTables(): Promise<void> {
     if (!this.db) return;
 
-    // Create schema with proper indexes and FTS5
+    // Create base schema without FTS5
     this.db.run(`
       -- Categories table with custom fields support
       CREATE TABLE IF NOT EXISTS categories (
@@ -104,33 +127,6 @@ export class WebSQLiteAdapter implements StorageAdapter {
       CREATE INDEX IF NOT EXISTS idx_items_cat_year ON items(categoryId, year DESC);
       CREATE INDEX IF NOT EXISTS idx_items_cat_rating ON items(categoryId, rating DESC);
 
-      -- FTS5 Full-Text Search table (blazing fast search < 10ms)
-      CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
-        name, 
-        description,
-        genres,
-        content=items,
-        content_rowid=rowid
-      );
-
-      -- Triggers to keep FTS in sync
-      CREATE TRIGGER IF NOT EXISTS items_ai AFTER INSERT ON items BEGIN
-        INSERT INTO items_fts(rowid, name, description, genres) 
-        VALUES (NEW.rowid, NEW.name, NEW.description, NEW.genres);
-      END;
-
-      CREATE TRIGGER IF NOT EXISTS items_ad AFTER DELETE ON items BEGIN
-        INSERT INTO items_fts(items_fts, rowid, name, description, genres) 
-        VALUES('delete', OLD.rowid, OLD.name, OLD.description, OLD.genres);
-      END;
-
-      CREATE TRIGGER IF NOT EXISTS items_au AFTER UPDATE ON items BEGIN
-        INSERT INTO items_fts(items_fts, rowid, name, description, genres) 
-        VALUES('delete', OLD.rowid, OLD.name, OLD.description, OLD.genres);
-        INSERT INTO items_fts(rowid, name, description, genres) 
-        VALUES (NEW.rowid, NEW.name, NEW.description, NEW.genres);
-      END;
-
       -- App state table
       CREATE TABLE IF NOT EXISTS app_state (
         key TEXT PRIMARY KEY,
@@ -147,23 +143,11 @@ export class WebSQLiteAdapter implements StorageAdapter {
       INSERT OR IGNORE INTO settings (key, value) VALUES ('schema_version', '3');
     `);
 
-    await this.persist();
-  }
-
-  private async runMigrations(): Promise<void> {
-    if (!this.db) return;
-
-    // Get current schema version
-    const result = this.db.exec("SELECT value FROM settings WHERE key = 'schema_version'");
-    const currentVersion = result[0]?.values[0]?.[0] as string || '1';
-
-    if (parseInt(currentVersion) < 2) {
-      // Migration v1 -> v2: Add FTS5
-      console.log('Running migration v1 -> v2: Adding FTS5');
-      
+    // Create FTS5 tables only if supported
+    if (this.fts5Available) {
       try {
         this.db.run(`
-          -- Create FTS5 table if not exists
+          -- FTS5 Full-Text Search table (blazing fast search < 10ms)
           CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
             name, 
             description,
@@ -172,11 +156,7 @@ export class WebSQLiteAdapter implements StorageAdapter {
             content_rowid=rowid
           );
 
-          -- Populate FTS from existing items
-          INSERT OR IGNORE INTO items_fts(rowid, name, description, genres) 
-          SELECT rowid, name, description, genres FROM items;
-
-          -- Create triggers
+          -- Triggers to keep FTS in sync
           CREATE TRIGGER IF NOT EXISTS items_ai AFTER INSERT ON items BEGIN
             INSERT INTO items_fts(rowid, name, description, genres) 
             VALUES (NEW.rowid, NEW.name, NEW.description, NEW.genres);
@@ -193,15 +173,69 @@ export class WebSQLiteAdapter implements StorageAdapter {
             INSERT INTO items_fts(rowid, name, description, genres) 
             VALUES (NEW.rowid, NEW.name, NEW.description, NEW.genres);
           END;
+        `);
+      } catch (e) {
+        console.warn('Failed to create FTS5 tables:', e);
+        this.fts5Available = false;
+      }
+    }
 
-          -- Add composite indexes
+    await this.persist();
+  }
+
+  private async runMigrations(): Promise<void> {
+    if (!this.db) return;
+
+    // Get current schema version
+    const result = this.db.exec("SELECT value FROM settings WHERE key = 'schema_version'");
+    const currentVersion = result[0]?.values[0]?.[0] as string || '1';
+
+    if (parseInt(currentVersion) < 2) {
+      // Migration v1 -> v2: Add FTS5 (only if supported)
+      console.log('Running migration v1 -> v2: Adding indexes');
+      
+      try {
+        // Add composite indexes (these work without FTS5)
+        this.db.run(`
           CREATE INDEX IF NOT EXISTS idx_items_cat_name ON items(categoryId, name COLLATE NOCASE);
           CREATE INDEX IF NOT EXISTS idx_items_cat_year ON items(categoryId, year DESC);
           CREATE INDEX IF NOT EXISTS idx_items_cat_rating ON items(categoryId, rating DESC);
-
-          -- Update version
-          INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '2');
         `);
+
+        // Try FTS5 only if available
+        if (this.fts5Available) {
+          this.db.run(`
+            CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
+              name, 
+              description,
+              genres,
+              content=items,
+              content_rowid=rowid
+            );
+
+            INSERT OR IGNORE INTO items_fts(rowid, name, description, genres) 
+            SELECT rowid, name, description, genres FROM items;
+
+            CREATE TRIGGER IF NOT EXISTS items_ai AFTER INSERT ON items BEGIN
+              INSERT INTO items_fts(rowid, name, description, genres) 
+              VALUES (NEW.rowid, NEW.name, NEW.description, NEW.genres);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS items_ad AFTER DELETE ON items BEGIN
+              INSERT INTO items_fts(items_fts, rowid, name, description, genres) 
+              VALUES('delete', OLD.rowid, OLD.name, OLD.description, OLD.genres);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS items_au AFTER UPDATE ON items BEGIN
+              INSERT INTO items_fts(items_fts, rowid, name, description, genres) 
+              VALUES('delete', OLD.rowid, OLD.name, OLD.description, OLD.genres);
+              INSERT INTO items_fts(rowid, name, description, genres) 
+              VALUES (NEW.rowid, NEW.name, NEW.description, NEW.genres);
+            END;
+          `);
+        }
+
+        this.db.run(`INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '2')`);
       } catch (e) {
         console.warn('Migration v1->v2 warning:', e);
       }
@@ -454,9 +488,15 @@ export class WebSQLiteAdapter implements StorageAdapter {
 
   /**
    * FTS5 Full-Text Search - blazing fast (< 10ms for 1M items)
+   * Falls back to LIKE query if FTS5 is not available
    */
   async fullTextSearch(query: string, options?: FTSOptions): Promise<Item[]> {
     if (!this.db || !query.trim()) return [];
+
+    // If FTS5 is not available, use LIKE fallback
+    if (!this.fts5Available) {
+      return this.getItems({ ...options, searchQuery: query, useFTS: false });
+    }
 
     // Escape special FTS5 characters and prepare query
     const sanitizedQuery = query
@@ -509,6 +549,7 @@ export class WebSQLiteAdapter implements StorageAdapter {
       return result[0].values.map(row => this.rowToItem(columns, row));
     } catch (e) {
       console.warn('FTS search failed, falling back to LIKE:', e);
+      this.fts5Available = false; // Disable for future queries
       return this.getItems({ ...options, searchQuery: query, useFTS: false });
     }
   }
