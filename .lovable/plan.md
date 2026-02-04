@@ -1,59 +1,138 @@
 
-# Plán: Export a Import SQLite databázy
+# Plán: Prechod na JSON-only úložisko
 
 ## Cieľ
-Pridať možnosť exportovať a importovať celú SQLite databázu ako `.db` súbor, ktorý môžeš neskôr načítať späť.
-
-## Čo už existuje
-- `WebSQLiteAdapter.exportDatabase()` - vracia raw SQLite ako `Uint8Array`
-- `WebSQLiteAdapter.importDatabase(data)` - importuje `Uint8Array` späť do databázy
-- Toolbar s dropdown menu "Database"
-
-## Zmeny
-
-### 1. Pridanie funkcií do useStorage hooku
-**Súbor:** `src/hooks/useStorage.ts`
-
-Pridám dve nové funkcie:
-- `exportSQLite()` - zavolá adapter.exportDatabase() a stiahne ako .db súbor
-- `importSQLite(file)` - načíta .db súbor a zavolá adapter.importDatabase()
-
-### 2. Aktualizácia Toolbar komponentu
-**Súbor:** `src/components/Toolbar.tsx`
-
-Do dropdown menu "Database" pridám:
-- **Export SQLite** - stiahne databázu ako `stuff_organizer_TIMESTAMP.db`
-- **Import SQLite** - načíta .db súbor a nahradí aktuálnu databázu
-
-### 3. Aktualizácia StuffOrganizer
-**Súbor:** `src/components/StuffOrganizer.tsx`
-
-- Pridám nový ref pre input súbor pre SQLite import
-- Prepojím handlery s novými funkciami
-
-## Výsledok
-V menu "Database" budeš mať:
-- Export JSON (existujúce)
-- Import JSON (existujúce)
-- **Export SQLite** ← NOVÉ
-- **Import SQLite** ← už existuje, využijeme
-- Import SQLite (z inej aplikácie) ← existujúce
+Nahradiť SQLite (sql.js) jednoduchým JSON úložiskom, ktoré:
+- Spoľahlivo funguje v prehliadači (IndexedDB)
+- Bude fungovať aj v Electrone (file system)
+- Má jednoduchý a spoľahlivý import/export
 
 ---
 
-## Technické detaily
+## Architektonické rozhodnutie
 
-### Export SQLite
+### Web verzia
+- Dáta sa uložia ako JSON string do IndexedDB
+- Pri štarte sa načíta celý JSON do pamäte
+- Pri zmene sa debounced uloží späť
+
+### Electron verzia (budúcnosť)
+- Dáta sa uložia do `data.json` súboru
+- Rovnaký formát, iný storage backend
+
+---
+
+## Zmeny v súboroch
+
+### 1. Nový JSONStorageAdapter
+**Súbor:** `src/lib/storage/JSONStorageAdapter.ts` (NOVÝ)
+
 ```text
-1. Zavolá adapter.exportDatabase() → Uint8Array
-2. Vytvorí Blob s typom 'application/x-sqlite3'
-3. Stiahne ako stuff_organizer_YYYY-MM-DD.db
+Jednoduchý adapter:
+- loadState(): načíta JSON z IndexedDB
+- saveState(): uloží JSON do IndexedDB
+- exportData(): vráti stav ako objekt
+- importData(): nahradí stav
 ```
 
-### Import SQLite
+### 2. Úprava storage factory
+**Súbor:** `src/lib/storage/index.ts`
+
 ```text
-1. Používateľ vyberie .db súbor
-2. Načíta ako ArrayBuffer → Uint8Array
-3. Zavolá adapter.importDatabase(data)
-4. Refreshne stav aplikácie
+- createStorageAdapter() vráti JSONStorageAdapter namiesto WebSQLiteAdapter
+- Zachová singleton pattern
 ```
+
+### 3. Zjednodušenie useStorage
+**Súbor:** `src/hooks/useStorage.ts`
+
+```text
+- Odstráni exportSQLite/importSQLite (binárny export)
+- Pridá exportJSON/importJSON priamo (nie cez dialógy)
+- Zjednoduší inicializáciu (žiadne migrations)
+```
+
+### 4. Úprava Toolbar
+**Súbor:** `src/components/Toolbar.tsx`
+
+```text
+- Menu "Database" bude mať:
+  - Export (JSON)
+  - Import (JSON)
+- Odstráni SQLite-specific možnosti
+```
+
+### 5. Čistenie starého kódu
+**Súbory na odstránenie/zjednodušenie:**
+- `src/lib/storage/WebSQLiteAdapter.ts` - odstrániť
+- `src/lib/storage/SQLiteAdapter.ts` - odstrániť
+- `src/lib/storage/migrations.ts` - zjednodušiť (iba legacy cleanup)
+- `src/components/SQLiteImportDialog.tsx` - odstrániť
+
+---
+
+## Nový JSONStorageAdapter - Implementácia
+
+### Štruktúra dát v IndexedDB
+
+```text
+Databáza: "stuff-organizer"
+Object Store: "data"
+Kľúč: "main"
+Hodnota: { categories: [...], items: [...], version: 3 }
+```
+
+### Kľúčové metódy
+
+```text
+init()
+- Otvorí IndexedDB
+- Načíta existujúce dáta (ak sú)
+
+loadState()
+- Vráti kompletný AppState
+
+saveState(state)
+- Uloží celý stav ako JSON
+
+exportData()
+- Vráti { categories, items, images, version, exportDate }
+
+importData(data)
+- Validuje formát
+- Nahradí celý stav
+```
+
+---
+
+## Výhody nového riešenia
+
+1. **Spoľahlivosť** - JSON je jednoduchý, žiadne binárne problémy
+2. **Debugovateľnosť** - môžeš otvoriť export a skontrolovať
+3. **Portabilita** - rovnaký súbor funguje všade
+4. **Electron ready** - len zmeníš backend na file system
+5. **Menší bundle** - nepotrebuješ sql.js WASM (2+ MB)
+
+## Nevýhody
+
+1. **Výkon pri veľkých dátach** - nad 100k položiek bude pomalšie
+2. **Žiadne FTS** - vyhľadávanie bude in-memory (stále rýchle do 100k)
+
+---
+
+## Migrácia existujúcich dát
+
+Pri prvom spustení:
+1. Skontroluje či existuje SQLite databáza v IndexedDB
+2. Ak áno, načíta dáta cez sql.js a prekonvertuje na JSON
+3. Uloží do nového JSON formátu
+4. Vymaže starú SQLite databázu
+
+---
+
+## Odhad rozsahu
+
+- **Nové súbory:** 1 (JSONStorageAdapter.ts)
+- **Upravené súbory:** 4 (index.ts, useStorage.ts, Toolbar.tsx, StuffOrganizer.tsx)
+- **Odstránené súbory:** 3 (WebSQLiteAdapter.ts, SQLiteAdapter.ts, SQLiteImportDialog.tsx)
+- **Čistý výsledok:** Menej kódu, väčšia spoľahlivosť
