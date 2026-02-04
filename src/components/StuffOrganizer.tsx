@@ -52,6 +52,9 @@ export const StuffOrganizer = () => {
     filteredItems,
     selectedItem,
     getCategoryItemCount,
+    // SQLite export/import
+    exportSQLite,
+    importSQLite,
   } = useStorage();
 
   const {
@@ -68,6 +71,7 @@ export const StuffOrganizer = () => {
   const [storageDialogOpen, setStorageDialogOpen] = useState(false);
   const [sqliteImportDialogOpen, setSqliteImportDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sqliteFileInputRef = useRef<HTMLInputElement>(null);
 
   // File system storage hook
   const fileSystemStorage = useFileSystemStorage();
@@ -281,6 +285,36 @@ export const StuffOrganizer = () => {
     toast.success('Backup created successfully');
   };
 
+  const handleExportSQLite = async () => {
+    try {
+      await exportSQLite();
+      toast.success('SQLite database exported');
+    } catch (error) {
+      console.error('SQLite export failed:', error);
+      toast.error('Failed to export SQLite database');
+    }
+  };
+
+  const handleImportSQLite = () => {
+    sqliteFileInputRef.current?.click();
+  };
+
+  const handleSQLiteFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        await importSQLite(file);
+        toast.success('SQLite database imported successfully');
+      } catch (error) {
+        console.error('SQLite import failed:', error);
+        toast.error('Failed to import SQLite database');
+      }
+    }
+    if (sqliteFileInputRef.current) {
+      sqliteFileInputRef.current.value = '';
+    }
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -331,6 +365,13 @@ export const StuffOrganizer = () => {
         className="hidden"
         onChange={handleFileSelected}
       />
+      <input
+        ref={sqliteFileInputRef}
+        type="file"
+        accept=".db,.sqlite,.sqlite3"
+        className="hidden"
+        onChange={handleSQLiteFileSelected}
+      />
 
       <Toolbar
         searchQuery={state.searchQuery}
@@ -338,6 +379,8 @@ export const StuffOrganizer = () => {
         onAddItem={handleAddItem}
         onExport={handleExport}
         onImport={handleImport}
+        onExportSQLite={handleExportSQLite}
+        onImportSQLite={handleImportSQLite}
         onBackup={handleBackup}
         onManageBackups={() => setBackupDialogOpen(true)}
         onOpenStorage={() => setStorageDialogOpen(true)}

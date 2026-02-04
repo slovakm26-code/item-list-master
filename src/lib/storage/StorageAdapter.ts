@@ -39,6 +39,10 @@ export interface StorageAdapter {
   exportData(): Promise<ExportData>;
   importData(data: ExportData, onProgress?: (count: number) => void): Promise<void>;
   
+  // Raw database export/import (SQLite specific)
+  exportDatabase(): Uint8Array | null;
+  importDatabase(data: Uint8Array): Promise<void>;
+  
   // Database maintenance
   vacuum?(): Promise<void>;
   optimize?(): Promise<void>;
