@@ -626,6 +626,13 @@ export const useStorage = (): UseStorageResult => {
       throw new Error('Storage not initialized');
     }
     
+    // Cancel any pending saves to prevent overwriting imported data
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    pendingSaveRef.current = null;
+    
     const arrayBuffer = await file.arrayBuffer();
     const data = new Uint8Array(arrayBuffer);
     
@@ -634,12 +641,15 @@ export const useStorage = (): UseStorageResult => {
     // Reload state from imported database
     const loadedState = await adapterRef.current.loadState();
     if (loadedState) {
+      // Use setState directly without triggering a save
       setState(loadedState);
     }
     
     // Update storage info
     const info = await adapterRef.current.getStorageInfo();
     setStorageInfo({ type: info.type, itemCount: info.itemCount });
+    
+    console.log(`SQLite imported successfully: ${info.itemCount} items`);
   }, []);
 
   return {
