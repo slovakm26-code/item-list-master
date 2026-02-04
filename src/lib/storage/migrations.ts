@@ -27,32 +27,26 @@ interface LegacyData {
 // ============================================
 
 const LEGACY_LOCALSTORAGE_KEY = 'stuff_organizer_db';
-const LEGACY_INDEXEDDB_NAME = 'stuff-organizer-sqlite';
+// Note: We don't check IndexedDB anymore because the SQLite adapter
+// uses IndexedDB for persistence (same name would conflict)
 
 /**
  * Skontroluje či existujú staré dáta na migráciu
+ * Only checks LocalStorage now - IndexedDB is used by SQLite adapter
  */
 export const checkLegacyData = async (): Promise<{
   hasLocalStorage: boolean;
   hasIndexedDB: boolean;
   localStorageSize: number;
 }> => {
-  // Check LocalStorage
+  // Check LocalStorage only
   const lsData = localStorage.getItem(LEGACY_LOCALSTORAGE_KEY);
   const hasLocalStorage = !!lsData;
   const localStorageSize = lsData ? new Blob([lsData]).size : 0;
 
-  // Check IndexedDB
-  let hasIndexedDB = false;
-  try {
-    const databases = await indexedDB.databases?.() || [];
-    hasIndexedDB = databases.some(db => db.name === LEGACY_INDEXEDDB_NAME);
-  } catch {
-    // indexedDB.databases() nie je všade podporovaný
-    hasIndexedDB = false;
-  }
-
-  return { hasLocalStorage, hasIndexedDB, localStorageSize };
+  // IndexedDB is now used by SQLite adapter, so we don't migrate from it
+  // This prevents the false positive detection issue
+  return { hasLocalStorage, hasIndexedDB: false, localStorageSize };
 };
 
 // ============================================
@@ -86,31 +80,12 @@ export const loadFromLocalStorage = (): LegacyData | null => {
 
 /**
  * Načíta dáta z IndexedDB (staré sql.js úložisko)
+ * @deprecated IndexedDB is now used by SQLite adapter, this function is kept for compatibility
  */
 export const loadFromIndexedDB = async (): Promise<Uint8Array | null> => {
-  return new Promise((resolve) => {
-    const request = indexedDB.open(LEGACY_INDEXEDDB_NAME, 1);
-
-    request.onerror = () => resolve(null);
-
-    request.onsuccess = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      
-      if (!db.objectStoreNames.contains('database')) {
-        resolve(null);
-        return;
-      }
-
-      const transaction = db.transaction('database', 'readonly');
-      const store = transaction.objectStore('database');
-      const getRequest = store.get('main');
-
-      getRequest.onsuccess = () => {
-        resolve(getRequest.result || null);
-      };
-      getRequest.onerror = () => resolve(null);
-    };
-  });
+  // This function is deprecated - we don't migrate from IndexedDB anymore
+  // because SQLite adapter uses the same IndexedDB database
+  return null;
 };
 
 // ============================================
@@ -260,13 +235,12 @@ export const clearLocalStorage = (): void => {
 
 /**
  * Vymaže staré IndexedDB dáta
+ * @deprecated IndexedDB is now used by SQLite adapter
  */
 export const clearIndexedDB = async (): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.deleteDatabase(LEGACY_INDEXEDDB_NAME);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
+  // This function is deprecated - we don't clear IndexedDB anymore
+  // because SQLite adapter uses the same IndexedDB database
+  return Promise.resolve();
 };
 
 // ============================================
