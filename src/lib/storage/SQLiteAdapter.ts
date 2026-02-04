@@ -638,4 +638,25 @@ export class SQLiteAdapter implements StorageAdapter {
       ftsEnabled: true,
     };
   }
+
+  /**
+   * Export database - not supported in Electron via IPC
+   * For Electron, use the native backup command instead
+   */
+  exportDatabase(): Uint8Array | null {
+    // Electron uses file-based SQLite, so direct export isn't available
+    // Use the backup() method or file system access instead
+    console.warn('exportDatabase() not available in Electron. Use backup() instead.');
+    return null;
+  }
+
+  /**
+   * Import database - not supported in Electron via IPC
+   * For Electron, replace the database file directly
+   */
+  async importDatabase(_data: Uint8Array): Promise<void> {
+    // Electron uses file-based SQLite, so direct import isn't available
+    // Replace the database file and restart the app instead
+    throw new Error('importDatabase() not available in Electron. Replace the database file instead.');
+  }
 }

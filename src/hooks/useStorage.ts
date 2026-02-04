@@ -83,6 +83,10 @@ interface UseStorageResult {
   // State management
   replaceState: (newState: AppState) => void;
   
+  // SQLite export/import
+  exportSQLite: () => Promise<void>;
+  importSQLite: (file: File) => Promise<void>;
+  
   // Storage info
   storageInfo: { type: string; itemCount: number } | null;
 }
@@ -584,6 +588,60 @@ export const useStorage = (): UseStorageResult => {
     }
   }, []);
 
+  // ============================================
+  // SQLITE EXPORT/IMPORT
+  // ============================================
+  
+  const exportSQLite = useCallback(async () => {
+    if (!adapterRef.current) {
+      throw new Error('Storage not initialized');
+    }
+    
+    const data = adapterRef.current.exportDatabase();
+    if (!data) {
+      throw new Error('Export not available for this storage type');
+    }
+    
+    // Create a new ArrayBuffer copy to avoid SharedArrayBuffer issues
+    const buffer = new ArrayBuffer(data.byteLength);
+    new Uint8Array(buffer).set(data);
+    
+    const blob = new Blob([buffer], { type: 'application/x-sqlite3' });
+    const url = URL.createObjectURL(blob);
+    
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const filename = `stuff_organizer_${timestamp}.db`;
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const importSQLite = useCallback(async (file: File) => {
+    if (!adapterRef.current) {
+      throw new Error('Storage not initialized');
+    }
+    
+    const arrayBuffer = await file.arrayBuffer();
+    const data = new Uint8Array(arrayBuffer);
+    
+    await adapterRef.current.importDatabase(data);
+    
+    // Reload state from imported database
+    const loadedState = await adapterRef.current.loadState();
+    if (loadedState) {
+      setState(loadedState);
+    }
+    
+    // Update storage info
+    const info = await adapterRef.current.getStorageInfo();
+    setStorageInfo({ type: info.type, itemCount: info.itemCount });
+  }, []);
+
   return {
     state,
     isLoading,
@@ -617,6 +675,8 @@ export const useStorage = (): UseStorageResult => {
     getCategoryItemCount,
     
     replaceState,
+    exportSQLite,
+    importSQLite,
     storageInfo,
   };
 };
