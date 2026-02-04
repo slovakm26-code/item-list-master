@@ -348,7 +348,8 @@ export class WebSQLiteAdapter implements StorageAdapter {
     if (!this.db) return null;
 
     const categories = await this.getCategories();
-    const items = await this.getItems({ limit: 50 }); // Load first page only
+    // Load ALL items - no limit! Critical for proper import/load
+    const items = await this.getItems();
     
     const stateResult = this.db.exec(
       "SELECT value FROM app_state WHERE key = 'uiState'"
