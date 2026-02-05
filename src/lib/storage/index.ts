@@ -1,28 +1,34 @@
 /**
  * Storage Module - JSON Only
+ * @packageDocumentation
  * 
  * Centralizovaný vstupný bod pre JSON úložisko.
- * Web používa IndexedDB, Electron bude používať file system.
+ * Web používa IndexedDB, Electron používa file system.
  */
+/// <reference path="../../types/electron.d.ts" />
 
 import { StorageAdapter } from './StorageAdapter';
 import { JSONStorageAdapter } from './JSONStorageAdapter';
+import { ElectronJSONAdapter } from './ElectronJSONAdapter';
 
 export * from './StorageAdapter';
 export { JSONStorageAdapter } from './JSONStorageAdapter';
+export { ElectronJSONAdapter } from './ElectronJSONAdapter';
 
 /**
  * Create JSON storage adapter
  * - Web: IndexedDB backend
- * - Electron: File system backend (future)
+ * - Electron: File system backend via IPC
  */
 export const createStorageAdapter = (): StorageAdapter => {
-  // V budúcnosti tu bude detekcia Electron prostredia
-  // if (typeof window !== 'undefined' && (window as any).electronFS) {
-  //   return new ElectronJSONAdapter();
-  // }
+  // Detect Electron environment
+  if (typeof window !== 'undefined' && window.electronJSON) {
+    console.log('Using Electron JSON adapter (file system)');
+    return new ElectronJSONAdapter();
+  }
   
-  console.log('Using JSON adapter (IndexedDB)');
+  // Web fallback
+  console.log('Using Web JSON adapter (IndexedDB)');
   return new JSONStorageAdapter();
 };
 

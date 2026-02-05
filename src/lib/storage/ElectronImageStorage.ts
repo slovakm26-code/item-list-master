@@ -12,6 +12,12 @@
 declare global {
   interface Window {
     electronImages?: {
+      // New simplified API (from preload.ts)
+      save?: (id: string, data: Buffer | string) => Promise<{ imagePath: string; thumbPath: string }>;
+      load?: (id: string, thumbnail?: boolean) => Promise<string | null>;
+      delete?: (id: string) => Promise<void>;
+      batchSave?: (images: Array<{ id: string; data: string }>) => Promise<string[]>;
+      // Legacy API (for backwards compatibility)
       saveImage: (itemId: string, data: ArrayBuffer, extension: string) => Promise<string>;
       loadImage: (filePath: string) => Promise<ArrayBuffer | null>;
       deleteImage: (filePath: string) => Promise<boolean>;

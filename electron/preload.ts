@@ -1,49 +1,37 @@
 /**
- * Electron Preload Script
+ * Electron Preload Script - JSON Storage Version
  * 
  * Vytvára bezpečný bridge medzi renderer a main procesom.
- * Exponuje API pre SQLite a obrázky cez contextBridge.
+ * Exponuje API pre JSON úložisko a obrázky cez contextBridge.
  */
 
 import { contextBridge, ipcRenderer } from 'electron';
 
-// SQLite API
-contextBridge.exposeInMainWorld('electronSQLite', {
-  // Query - SELECT statements
-  query: <T = any>(sql: string, params?: any[]): Promise<T[]> => 
-    ipcRenderer.invoke('sqlite:query', sql, params),
+// JSON Storage API
+contextBridge.exposeInMainWorld('electronJSON', {
+  // Load all data from data.json
+  load: (): Promise<{ version: number; lastModified: string; categories: any[]; items: any[] }> =>
+    ipcRenderer.invoke('json:load'),
 
-  // Run - INSERT/UPDATE/DELETE
-  run: (sql: string, params?: any[]): Promise<{ changes: number; lastInsertRowid: number }> => 
-    ipcRenderer.invoke('sqlite:run', sql, params),
+  // Save all data to data.json
+  save: (data: { categories: any[]; items: any[] }): Promise<void> =>
+    ipcRenderer.invoke('json:save', data),
 
-  // Exec - multiple statements (CREATE TABLE, etc.)
-  exec: (sql: string): Promise<void> => 
-    ipcRenderer.invoke('sqlite:exec', sql),
+  // Export as JSON string
+  export: (): Promise<string> =>
+    ipcRenderer.invoke('json:export'),
 
-  // Transaction - batch operations
-  transaction: (operations: Array<{ sql: string; params: any[] }>): Promise<void> =>
-    ipcRenderer.invoke('sqlite:transaction', operations),
+  // Import from JSON string
+  import: (jsonString: string): Promise<{ success: boolean; items: number; categories: number }> =>
+    ipcRenderer.invoke('json:import', jsonString),
 
-  // Batch insert items (optimized for 10,000+ items)
-  batchInsertItems: (items: any[]): Promise<{ inserted: number }> =>
-    ipcRenderer.invoke('sqlite:batchInsertItems', items),
+  // Create backup
+  backup: (): Promise<string> =>
+    ipcRenderer.invoke('json:backup'),
 
-  // FTS Search (< 10ms for 1M items)
-  ftsSearch: (query: string, limit?: number): Promise<any[]> =>
-    ipcRenderer.invoke('sqlite:ftsSearch', query, limit),
-
-  // Database info
-  getInfo: (): Promise<{ size: number; itemCount: number; walMode: boolean; path: string }> => 
-    ipcRenderer.invoke('sqlite:getInfo'),
-
-  // Vacuum - cleanup database
-  vacuum: (): Promise<void> => 
-    ipcRenderer.invoke('sqlite:vacuum'),
-
-  // Backup database
-  backup: (path?: string): Promise<string> => 
-    ipcRenderer.invoke('sqlite:backup', path),
+  // Get storage info
+  getInfo: (): Promise<{ path: string; size: number; itemCount: number; categoryCount: number; lastModified: string }> =>
+    ipcRenderer.invoke('json:getInfo'),
 });
 
 // Images API
@@ -75,24 +63,21 @@ contextBridge.exposeInMainWorld('electronApp', {
 // Type declarations for renderer
 declare global {
   interface Window {
-    electronSQLite: {
-      query: <T = any>(sql: string, params?: any[]) => Promise<T[]>;
-      run: (sql: string, params?: any[]) => Promise<{ changes: number; lastInsertRowid: number }>;
-      exec: (sql: string) => Promise<void>;
-      transaction: (operations: Array<{ sql: string; params: any[] }>) => Promise<void>;
-      batchInsertItems: (items: any[]) => Promise<{ inserted: number }>;
-      ftsSearch: (query: string, limit?: number) => Promise<any[]>;
-      getInfo: () => Promise<{ size: number; itemCount: number; walMode: boolean; path: string }>;
-      vacuum: () => Promise<void>;
-      backup: (path?: string) => Promise<string>;
+    electronJSON?: {
+      load: () => Promise<{ version: number; lastModified: string; categories: any[]; items: any[] }>;
+      save: (data: { categories: any[]; items: any[] }) => Promise<void>;
+      export: () => Promise<string>;
+      import: (jsonString: string) => Promise<{ success: boolean; items: number; categories: number }>;
+      backup: () => Promise<string>;
+      getInfo: () => Promise<{ path: string; size: number; itemCount: number; categoryCount: number; lastModified: string }>;
     };
-    electronImages: {
+    electronImages?: {
       save: (id: string, data: Buffer | string) => Promise<{ imagePath: string; thumbPath: string }>;
       load: (id: string, thumbnail?: boolean) => Promise<string | null>;
       delete: (id: string) => Promise<void>;
       batchSave: (images: Array<{ id: string; data: string }>) => Promise<string[]>;
     };
-    electronApp: {
+    electronApp?: {
       isElectron: boolean;
       platform: string;
       version: string;
