@@ -1,3 +1,5 @@
+/// <reference path="../../types/electron.d.ts" />
+
 import { AppState, Item, Category } from '@/types';
 
 /**
@@ -102,10 +104,10 @@ export interface DatabaseStatistics {
 }
 
 // Storage type detection for future Electron
-export const detectStorageType = (): 'localStorage' | 'indexedDB' | 'sqlite' => {
-  // In Electron, we'll detect SQLite availability
-  if (typeof window !== 'undefined' && (window as any).electronSQLite) {
-    return 'sqlite';
+export const detectStorageType = (): 'localStorage' | 'indexedDB' | 'electronJSON' => {
+  // Detect Electron JSON storage
+  if (typeof window !== 'undefined' && window.electronJSON) {
+    return 'electronJSON';
   }
   
   // Check IndexedDB support
