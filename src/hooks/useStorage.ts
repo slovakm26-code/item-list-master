@@ -1,7 +1,7 @@
 /**
  * Unified Storage Hook
  * 
- * Centralizovaný hook pre SQLite-only úložisko.
+ * Centralizovaný hook pre JSON úložisko.
  * Nahrádza pôvodný useAppState + localStorage kombináciu.
  */
 
@@ -9,7 +9,6 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Category, Item, AppState, SortableColumn, CustomFieldFilter } from '@/types';
 import { getStorage } from '@/lib/storage';
 import { StorageAdapter } from '@/lib/storage/StorageAdapter';
-import { runFullMigration, checkLegacyData } from '@/lib/storage/migrations';
 
 // Debounce pre ukladanie
 const SAVE_DEBOUNCE_MS = 1000;
@@ -83,10 +82,6 @@ interface UseStorageResult {
   // State management
   replaceState: (newState: AppState) => void;
   
-  // SQLite export/import
-  exportSQLite: () => Promise<void>;
-  importSQLite: (file: File) => Promise<void>;
-  
   // Storage info
   storageInfo: { type: string; itemCount: number } | null;
 }
@@ -112,27 +107,11 @@ export const useStorage = (): UseStorageResult => {
         setIsLoading(true);
         setError(null);
 
-        // Získaj adapter (auto-detekcia web/electron)
+        // Získaj adapter (JSON storage)
         const adapter = await getStorage();
         adapterRef.current = adapter;
 
-        // Skontroluj či treba migráciu
-        const legacy = await checkLegacyData();
-        
-        if (legacy.hasLocalStorage || legacy.hasIndexedDB) {
-          console.log('Detected legacy data, running migration...');
-          const result = await runFullMigration(adapter, (msg, prog) => {
-            console.log(`Migration: ${msg} (${prog}%)`);
-          });
-          
-          if (!result.success) {
-            console.warn('Migration had errors:', result.errors);
-          } else {
-            console.log(`Migrated ${result.itemsCount} items, ${result.categoriesCount} categories`);
-          }
-        }
-
-        // Načítaj stav zo SQLite
+        // Načítaj stav z JSON storage
         const loadedState = await adapter.loadState();
         
         if (loadedState) {
@@ -588,70 +567,6 @@ export const useStorage = (): UseStorageResult => {
     }
   }, []);
 
-  // ============================================
-  // SQLITE EXPORT/IMPORT
-  // ============================================
-  
-  const exportSQLite = useCallback(async () => {
-    if (!adapterRef.current) {
-      throw new Error('Storage not initialized');
-    }
-    
-    const data = adapterRef.current.exportDatabase();
-    if (!data) {
-      throw new Error('Export not available for this storage type');
-    }
-    
-    // Create a new ArrayBuffer copy to avoid SharedArrayBuffer issues
-    const buffer = new ArrayBuffer(data.byteLength);
-    new Uint8Array(buffer).set(data);
-    
-    const blob = new Blob([buffer], { type: 'application/x-sqlite3' });
-    const url = URL.createObjectURL(blob);
-    
-    const timestamp = new Date().toISOString().slice(0, 10);
-    const filename = `stuff_organizer_${timestamp}.db`;
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, []);
-
-  const importSQLite = useCallback(async (file: File) => {
-    if (!adapterRef.current) {
-      throw new Error('Storage not initialized');
-    }
-    
-    // Cancel any pending saves to prevent overwriting imported data
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = null;
-    }
-    pendingSaveRef.current = null;
-    
-    const arrayBuffer = await file.arrayBuffer();
-    const data = new Uint8Array(arrayBuffer);
-    
-    await adapterRef.current.importDatabase(data);
-    
-    // Reload state from imported database
-    const loadedState = await adapterRef.current.loadState();
-    if (loadedState) {
-      // Use setState directly without triggering a save
-      setState(loadedState);
-    }
-    
-    // Update storage info
-    const info = await adapterRef.current.getStorageInfo();
-    setStorageInfo({ type: info.type, itemCount: info.itemCount });
-    
-    console.log(`SQLite imported successfully: ${info.itemCount} items`);
-  }, []);
-
   return {
     state,
     isLoading,
@@ -685,8 +600,6 @@ export const useStorage = (): UseStorageResult => {
     getCategoryItemCount,
     
     replaceState,
-    exportSQLite,
-    importSQLite,
     storageInfo,
   };
 };

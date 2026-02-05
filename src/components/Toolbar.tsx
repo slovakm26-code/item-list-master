@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Download, Upload, Database, Moon, Sun, Archive, Search, HardDrive, FileUp, FileDown } from 'lucide-react';
+import { Plus, Download, Upload, Database, Moon, Sun, Archive, Search, HardDrive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -21,12 +21,9 @@ interface ToolbarProps {
   onAddItem: () => void;
   onExport: () => void;
   onImport: () => void;
-  onExportSQLite: () => void;
-  onImportSQLite: () => void;
   onBackup: () => void;
   onManageBackups: () => void;
   onOpenStorage: () => void;
-  onOpenSQLiteImport: () => void;
   isStorageConnected?: boolean;
   categories: Category[];
   customFieldFilters: CustomFieldFilterType[];
@@ -39,12 +36,9 @@ export const Toolbar = ({
   onAddItem,
   onExport,
   onImport,
-  onExportSQLite,
-  onImportSQLite,
   onBackup,
   onManageBackups,
   onOpenStorage,
-  onOpenSQLiteImport,
   isStorageConnected = false,
   categories,
   customFieldFilters,
@@ -98,20 +92,6 @@ export const Toolbar = ({
           <DropdownMenuItem onClick={onImport}>
             <Upload className="w-4 h-4 mr-2" />
             Import JSON
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onExportSQLite}>
-            <FileDown className="w-4 h-4 mr-2" />
-            Export SQLite (.db)
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onImportSQLite}>
-            <FileUp className="w-4 h-4 mr-2" />
-            Import SQLite (.db)
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onOpenSQLiteImport}>
-            <Database className="w-4 h-4 mr-2" />
-            Import from other app
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={onBackup}>

@@ -1,35 +1,29 @@
 /**
- * Storage Module - SQLite Only
+ * Storage Module - JSON Only
  * 
- * Centralizovaný vstupný bod pre SQLite úložisko.
- * Web používa sql.js (WASM), Electron používa better-sqlite3.
+ * Centralizovaný vstupný bod pre JSON úložisko.
+ * Web používa IndexedDB, Electron bude používať file system.
  */
 
-import { StorageAdapter, detectStorageType } from './StorageAdapter';
-import { WebSQLiteAdapter } from './WebSQLiteAdapter';
+import { StorageAdapter } from './StorageAdapter';
+import { JSONStorageAdapter } from './JSONStorageAdapter';
 
 export * from './StorageAdapter';
-export { WebSQLiteAdapter } from './WebSQLiteAdapter';
+export { JSONStorageAdapter } from './JSONStorageAdapter';
 
 /**
- * Create SQLite storage adapter
- * - Web: WebSQLite (sql.js with IndexedDB persistence)
- * - Electron: Native SQLite via better-sqlite3 (auto-detected)
+ * Create JSON storage adapter
+ * - Web: IndexedDB backend
+ * - Electron: File system backend (future)
  */
 export const createStorageAdapter = (): StorageAdapter => {
-  const type = detectStorageType();
+  // V budúcnosti tu bude detekcia Electron prostredia
+  // if (typeof window !== 'undefined' && (window as any).electronFS) {
+  //   return new ElectronJSONAdapter();
+  // }
   
-  if (type === 'sqlite') {
-    // Electron s natívnym SQLite
-    console.log('Using native SQLite adapter (Electron)');
-    // V Electron verzii sa použije SQLiteAdapter z electron/main.ts
-    // Tu vrátime WebSQLiteAdapter ako fallback
-    return new WebSQLiteAdapter();
-  }
-  
-  // Web verzia - vždy WebSQLite
-  console.log('Using WebSQLite adapter (sql.js)');
-  return new WebSQLiteAdapter();
+  console.log('Using JSON adapter (IndexedDB)');
+  return new JSONStorageAdapter();
 };
 
 // Singleton instance

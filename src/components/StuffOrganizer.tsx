@@ -9,7 +9,6 @@ import { DetailPanel } from '@/components/DetailPanel';
 import { ItemDialog } from '@/components/ItemDialog';
 import { BackupDialog } from '@/components/BackupDialog';
 import { StorageConnectionDialog } from '@/components/StorageConnectionDialog';
-import { SQLiteImportDialog } from '@/components/SQLiteImportDialog';
 import { CustomFieldFilter } from '@/components/CustomFieldFilter';
 import { Item, SortableColumn, CustomFieldFilter as CustomFieldFilterType } from '@/types';
 import { downloadExportWithImages, importDatabaseWithImages } from '@/lib/exportWithImages';
@@ -52,9 +51,6 @@ export const StuffOrganizer = () => {
     filteredItems,
     selectedItem,
     getCategoryItemCount,
-    // SQLite export/import
-    exportSQLite,
-    importSQLite,
   } = useStorage();
 
   const {
@@ -69,9 +65,7 @@ export const StuffOrganizer = () => {
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [backupDialogOpen, setBackupDialogOpen] = useState(false);
   const [storageDialogOpen, setStorageDialogOpen] = useState(false);
-  const [sqliteImportDialogOpen, setSqliteImportDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const sqliteFileInputRef = useRef<HTMLInputElement>(null);
 
   // File system storage hook
   const fileSystemStorage = useFileSystemStorage();
@@ -285,36 +279,6 @@ export const StuffOrganizer = () => {
     toast.success('Backup created successfully');
   };
 
-  const handleExportSQLite = async () => {
-    try {
-      await exportSQLite();
-      toast.success('SQLite database exported');
-    } catch (error) {
-      console.error('SQLite export failed:', error);
-      toast.error('Failed to export SQLite database');
-    }
-  };
-
-  const handleImportSQLite = () => {
-    sqliteFileInputRef.current?.click();
-  };
-
-  const handleSQLiteFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      try {
-        await importSQLite(file);
-        toast.success('SQLite database imported successfully');
-      } catch (error) {
-        console.error('SQLite import failed:', error);
-        toast.error('Failed to import SQLite database');
-      }
-    }
-    if (sqliteFileInputRef.current) {
-      sqliteFileInputRef.current.value = '';
-    }
-  };
-
   // Loading state
   if (isLoading) {
     return (
@@ -365,13 +329,6 @@ export const StuffOrganizer = () => {
         className="hidden"
         onChange={handleFileSelected}
       />
-      <input
-        ref={sqliteFileInputRef}
-        type="file"
-        accept=".db,.sqlite,.sqlite3"
-        className="hidden"
-        onChange={handleSQLiteFileSelected}
-      />
 
       <Toolbar
         searchQuery={state.searchQuery}
@@ -379,12 +336,9 @@ export const StuffOrganizer = () => {
         onAddItem={handleAddItem}
         onExport={handleExport}
         onImport={handleImport}
-        onExportSQLite={handleExportSQLite}
-        onImportSQLite={handleImportSQLite}
         onBackup={handleBackup}
         onManageBackups={() => setBackupDialogOpen(true)}
         onOpenStorage={() => setStorageDialogOpen(true)}
-        onOpenSQLiteImport={() => setSqliteImportDialogOpen(true)}
         isStorageConnected={fileSystemStorage.isConnected}
         categories={state.categories}
         customFieldFilters={state.customFieldFilters || []}
@@ -447,7 +401,7 @@ export const StuffOrganizer = () => {
         <footer className="flex items-center justify-between px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <Database className="h-3 w-3" />
-            <span>SQLite ({storageInfo.type})</span>
+            <span>JSON ({storageInfo.type})</span>
           </div>
           <div>
             <span className="font-medium">{storageInfo.itemCount.toLocaleString()}</span> položiek v databáze
@@ -479,29 +433,6 @@ export const StuffOrganizer = () => {
         directoryName={fileSystemStorage.directoryName}
         onConnect={fileSystemStorage.connect}
         onDisconnect={fileSystemStorage.disconnect}
-      />
-
-      <SQLiteImportDialog
-        open={sqliteImportDialogOpen}
-        onOpenChange={setSqliteImportDialogOpen}
-        categories={state.categories}
-        onImport={(items) => {
-          items.forEach(item => {
-            addItem({
-              name: item.name,
-              year: item.year,
-              rating: item.rating,
-              genres: item.genres,
-              description: item.description,
-              categoryId: item.categoryId,
-              path: item.path,
-              coverPath: item.coverPath,
-              season: item.season ?? null,
-              episode: item.episode ?? null,
-              watched: item.watched ?? false,
-            });
-          });
-        }}
       />
     </div>
   );
