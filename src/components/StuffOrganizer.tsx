@@ -339,7 +339,9 @@ export const StuffOrganizer = () => {
         onBackup={handleBackup}
         onManageBackups={() => setBackupDialogOpen(true)}
         onOpenStorage={() => setStorageDialogOpen(true)}
+        onOpenDataFolder={window.electronApp?.openDataFolder}
         isStorageConnected={fileSystemStorage.isConnected}
+        isElectron={!!window.electronApp?.isElectron}
         categories={state.categories}
         customFieldFilters={state.customFieldFilters || []}
         onCustomFieldFiltersChange={setCustomFieldFilters}

@@ -1,25 +1,54 @@
 /**
- * Electron JSON Storage Adapter
+ * Electron JSON Storage Adapter - Chunked Version for 10M+ Items
  * 
- * Používa IPC bridge na komunikáciu s main procesom,
- * ktorý ukladá dáta ako JSON súbor na disk.
+ * Features:
+ * - Lazy loading: first 2 chunks loaded immediately, rest in background
+ * - Smart partial updates: only rewrite changed chunks
+ * - Memory-first architecture: all items kept in RAM after load
+ * - Web Worker integration ready
  */
 /// <reference path="../../types/electron.d.ts" />
 
 import { StorageAdapter, ExportData, StorageInfo, QueryOptions } from './StorageAdapter';
 import { AppState, Item, Category } from '@/types';
 
+const CHUNK_SIZE = 100_000; // Must match main.ts
+
 export class ElectronJSONAdapter implements StorageAdapter {
   private ready = false;
   private cachedState: AppState | null = null;
+  private totalItems = 0;
+  private chunkCount = 0;
+  private loadedChunks = 0;
+  private isLoadingBackground = false;
+  private onBackgroundLoadComplete?: () => void;
 
   async init(): Promise<void> {
     if (!window.electronJSON) {
       throw new Error('ElectronJSON API not available');
     }
     
-    // Load initial data
-    const data = await window.electronJSON.load();
+    // Check if loadInitial is available (chunked version)
+    if (window.electronJSON.loadInitial) {
+      await this.initChunked();
+    } else {
+      // Fallback to legacy full load
+      await this.initLegacy();
+    }
+    
+    this.ready = true;
+  }
+
+  /**
+   * Chunked initialization - load first 2 chunks for instant UI
+   */
+  private async initChunked(): Promise<void> {
+    const data = await window.electronJSON!.loadInitial();
+    
+    this.totalItems = data.totalItems;
+    this.chunkCount = data.chunkCount;
+    this.loadedChunks = data.loadedChunks;
+    
     this.cachedState = {
       categories: data.categories || [],
       items: data.items || [],
@@ -32,12 +61,90 @@ export class ElectronJSONAdapter implements StorageAdapter {
       customFieldFilters: [],
     };
     
-    this.ready = true;
-    console.log(`ElectronJSONAdapter initialized: ${data.items?.length || 0} items`);
+    console.log(`ElectronJSONAdapter: Initial load ${data.items.length}/${this.totalItems} items (${this.loadedChunks}/${this.chunkCount} chunks)`);
+    
+    // Load remaining chunks in background if there are more
+    if (this.loadedChunks < this.chunkCount) {
+      this.loadRemainingChunksInBackground();
+    }
+  }
+
+  /**
+   * Load remaining chunks in background (non-blocking)
+   */
+  private async loadRemainingChunksInBackground(): Promise<void> {
+    if (this.isLoadingBackground || !window.electronJSON?.loadRemainingChunks) return;
+    
+    this.isLoadingBackground = true;
+    
+    try {
+      const remainingItems = await window.electronJSON.loadRemainingChunks(this.loadedChunks);
+      
+      if (this.cachedState) {
+        this.cachedState.items = [...this.cachedState.items, ...remainingItems];
+      }
+      
+      this.loadedChunks = this.chunkCount;
+      console.log(`ElectronJSONAdapter: Background load complete, total ${this.cachedState?.items.length} items`);
+      
+      this.onBackgroundLoadComplete?.();
+    } catch (error) {
+      console.error('Failed to load remaining chunks:', error);
+    } finally {
+      this.isLoadingBackground = false;
+    }
+  }
+
+  /**
+   * Legacy initialization - load all at once
+   */
+  private async initLegacy(): Promise<void> {
+    const data = await window.electronJSON!.load();
+    
+    this.cachedState = {
+      categories: data.categories || [],
+      items: data.items || [],
+      selectedCategoryId: null,
+      selectedItemIds: [],
+      searchQuery: '',
+      sortColumn: null,
+      sortDirection: 'asc',
+      useManualOrder: false,
+      customFieldFilters: [],
+    };
+    
+    this.totalItems = this.cachedState.items.length;
+    console.log(`ElectronJSONAdapter: Legacy load ${this.totalItems} items`);
   }
 
   isReady(): boolean {
     return this.ready;
+  }
+
+  /**
+   * Check if all chunks are loaded
+   */
+  isFullyLoaded(): boolean {
+    return this.loadedChunks >= this.chunkCount;
+  }
+
+  /**
+   * Get loading progress (0-1)
+   */
+  getLoadingProgress(): number {
+    if (this.chunkCount === 0) return 1;
+    return this.loadedChunks / this.chunkCount;
+  }
+
+  /**
+   * Wait for background load to complete
+   */
+  async waitForFullLoad(): Promise<void> {
+    if (this.isFullyLoaded()) return;
+    
+    return new Promise(resolve => {
+      this.onBackgroundLoadComplete = resolve;
+    });
   }
 
   // === Full State Operations ===
@@ -69,6 +176,52 @@ export class ElectronJSONAdapter implements StorageAdapter {
       categories: state.categories,
       items: state.items,
     });
+  }
+
+  /**
+   * Save only categories (fast, no item chunks touched)
+   */
+  async saveCategories(categories: Category[]): Promise<void> {
+    if (this.cachedState) {
+      this.cachedState.categories = categories;
+    }
+    
+    if (window.electronJSON?.updateCategories) {
+      await window.electronJSON.updateCategories(categories);
+    } else {
+      await this.saveState(this.cachedState!);
+    }
+  }
+
+  /**
+   * Smart partial save - only update affected chunk
+   */
+  async saveItemToChunk(item: Item): Promise<void> {
+    if (!this.cachedState || !window.electronJSON?.updateChunk) {
+      // Fallback to full save
+      await this.saveState(this.cachedState!);
+      return;
+    }
+    
+    // Find which chunk this item belongs to
+    const itemIndex = this.cachedState.items.findIndex(i => i.id === item.id);
+    if (itemIndex === -1) {
+      // New item, add to end
+      this.cachedState.items.push(item);
+      const chunkIndex = Math.floor(this.cachedState.items.length / CHUNK_SIZE);
+      const chunkStart = chunkIndex * CHUNK_SIZE;
+      const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, this.cachedState.items.length);
+      const chunkItems = this.cachedState.items.slice(chunkStart, chunkEnd);
+      await window.electronJSON.updateChunk(chunkIndex, chunkItems);
+    } else {
+      // Update existing item
+      this.cachedState.items[itemIndex] = item;
+      const chunkIndex = Math.floor(itemIndex / CHUNK_SIZE);
+      const chunkStart = chunkIndex * CHUNK_SIZE;
+      const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, this.cachedState.items.length);
+      const chunkItems = this.cachedState.items.slice(chunkStart, chunkEnd);
+      await window.electronJSON.updateChunk(chunkIndex, chunkItems);
+    }
   }
 
   // === Item Operations ===
@@ -141,7 +294,13 @@ export class ElectronJSONAdapter implements StorageAdapter {
     if (!state) return;
     
     state.items.push(item);
-    await this.saveState(state);
+    
+    // Use smart partial save if available
+    if (window.electronJSON?.updateChunk) {
+      await this.saveItemToChunk(item);
+    } else {
+      await this.saveState(state);
+    }
   }
 
   async updateItem(id: string, updates: Partial<Item>): Promise<void> {
@@ -150,8 +309,15 @@ export class ElectronJSONAdapter implements StorageAdapter {
     
     const index = state.items.findIndex(item => item.id === id);
     if (index !== -1) {
-      state.items[index] = { ...state.items[index], ...updates };
-      await this.saveState(state);
+      const updatedItem = { ...state.items[index], ...updates };
+      state.items[index] = updatedItem;
+      
+      // Use smart partial save if available
+      if (window.electronJSON?.updateChunk) {
+        await this.saveItemToChunk(updatedItem);
+      } else {
+        await this.saveState(state);
+      }
     }
   }
 
@@ -169,8 +335,6 @@ export class ElectronJSONAdapter implements StorageAdapter {
         try {
           if (window.electronImages.delete) {
             await window.electronImages.delete(id);
-          } else if (window.electronImages.deleteImage) {
-            await window.electronImages.deleteImage(id);
           }
         } catch (e) {
           console.warn(`Failed to delete image for ${id}:`, e);
@@ -184,7 +348,7 @@ export class ElectronJSONAdapter implements StorageAdapter {
     if (!state) return;
 
     // Batch add with progress
-    const batchSize = 1000;
+    const batchSize = 10000;
     for (let i = 0; i < items.length; i += batchSize) {
       const batch = items.slice(i, i + batchSize);
       state.items.push(...batch);
@@ -206,7 +370,7 @@ export class ElectronJSONAdapter implements StorageAdapter {
     if (!state) return;
     
     state.categories.push(category);
-    await this.saveState(state);
+    await this.saveCategories(state.categories);
   }
 
   async updateCategory(id: string, updates: Partial<Category>): Promise<void> {
@@ -216,7 +380,7 @@ export class ElectronJSONAdapter implements StorageAdapter {
     const index = state.categories.findIndex(cat => cat.id === id);
     if (index !== -1) {
       state.categories[index] = { ...state.categories[index], ...updates };
-      await this.saveState(state);
+      await this.saveCategories(state.categories);
     }
   }
 
@@ -236,8 +400,6 @@ export class ElectronJSONAdapter implements StorageAdapter {
         try {
           if (window.electronImages.delete) {
             await window.electronImages.delete(item.id);
-          } else if (window.electronImages.deleteImage) {
-            await window.electronImages.deleteImage(item.id);
           }
         } catch (e) {
           console.warn(`Failed to delete image for ${item.id}:`, e);
@@ -260,7 +422,7 @@ export class ElectronJSONAdapter implements StorageAdapter {
   async exportData(): Promise<ExportData> {
     const state = await this.loadState();
     return {
-      version: 3,
+      version: 4,
       exportDate: new Date().toISOString(),
       categories: state?.categories || [],
       items: state?.items || [],
@@ -292,12 +454,10 @@ export class ElectronJSONAdapter implements StorageAdapter {
   // === Database Export (not applicable for JSON) ===
 
   exportDatabase(): Uint8Array | null {
-    // JSON doesn't have raw database export
     return null;
   }
 
   async importDatabase(data: Uint8Array): Promise<void> {
-    // Try to parse as JSON
     const text = new TextDecoder().decode(data);
     const parsed = JSON.parse(text);
     await this.importData(parsed);
@@ -310,9 +470,43 @@ export class ElectronJSONAdapter implements StorageAdapter {
     return {
       type: 'indexedDB', // Report as indexedDB for compatibility
       usedBytes: info.size,
-      maxBytes: Infinity, // File system has no practical limit
+      maxBytes: Infinity,
       itemCount: info.itemCount,
       supportsLargeDatasets: true,
     };
+  }
+
+  /**
+   * Get extended info with chunking details
+   */
+  async getExtendedInfo(): Promise<{
+    path: string;
+    size: number;
+    itemCount: number;
+    categoryCount: number;
+    chunkCount: number;
+    chunkSize: number;
+    lastModified: string;
+  }> {
+    return window.electronJSON!.getInfo();
+  }
+
+  /**
+   * Open data folder in file explorer
+   */
+  async openDataFolder(): Promise<void> {
+    if (window.electronApp?.openDataFolder) {
+      await window.electronApp.openDataFolder();
+    }
+  }
+
+  /**
+   * Get user data path
+   */
+  async getUserDataPath(): Promise<string> {
+    if (window.electronApp?.getUserDataPath) {
+      return window.electronApp.getUserDataPath();
+    }
+    return '';
   }
 }
