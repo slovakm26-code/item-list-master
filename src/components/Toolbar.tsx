@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Download, Upload, Database, Moon, Sun, Archive, Search, HardDrive } from 'lucide-react';
+import { Plus, Download, Upload, Database, Moon, Sun, Archive, Search, HardDrive, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -24,7 +24,9 @@ interface ToolbarProps {
   onBackup: () => void;
   onManageBackups: () => void;
   onOpenStorage: () => void;
+  onOpenDataFolder?: () => void;
   isStorageConnected?: boolean;
+  isElectron?: boolean;
   categories: Category[];
   customFieldFilters: CustomFieldFilterType[];
   onCustomFieldFiltersChange: (filters: CustomFieldFilterType[]) => void;
@@ -39,7 +41,9 @@ export const Toolbar = ({
   onBackup,
   onManageBackups,
   onOpenStorage,
+  onOpenDataFolder,
   isStorageConnected = false,
+  isElectron = false,
   categories,
   customFieldFilters,
   onCustomFieldFiltersChange,
@@ -102,6 +106,15 @@ export const Toolbar = ({
             <Database className="w-4 h-4 mr-2" />
             Manage Backups
           </DropdownMenuItem>
+          {isElectron && onOpenDataFolder && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onOpenDataFolder}>
+                <FolderOpen className="w-4 h-4 mr-2" />
+                Open Data Folder
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

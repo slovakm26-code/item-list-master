@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "concurrently \"npm run vite:dev\" \"npm run electron:dev\"",
     "vite:dev": "cd .. && npm run dev",
-    "electron:dev": "wait-on http://localhost:5173 && tsc && cross-env NODE_ENV=development electron .",
+    "electron:dev": "wait-on http://localhost:5173 && tsc && cross-env NODE_ENV=development electron --max-old-space-size=12288 .",
     "build": "npm run build:vite && npm run build:electron",
     "build:vite": "cd .. && npm run build",
     "build:electron": "tsc",
@@ -55,6 +55,7 @@
     ],
     "asar": true,
     "compression": "maximum",
+    "electronArgs": ["--max-old-space-size=12288"],
     "win": {
       "target": [
         {

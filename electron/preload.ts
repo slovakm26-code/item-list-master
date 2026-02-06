@@ -1,86 +1,88 @@
 /**
- * Electron Preload Script - JSON Storage Version
+ * Electron Preload Script - Chunked JSON Storage API
  * 
- * Vytvára bezpečný bridge medzi renderer a main procesom.
- * Exponuje API pre JSON úložisko a obrázky cez contextBridge.
+ * Exposes secure IPC bridge for:
+ * - Chunked JSON data operations (lazy loading, partial updates)
+ * - Image management
+ * - App utilities (open data folder)
  */
 
 import { contextBridge, ipcRenderer } from 'electron';
 
-// JSON Storage API
+// Chunked JSON Storage API
 contextBridge.exposeInMainWorld('electronJSON', {
-  // Load all data from data.json
+  // Initial load (first 2 chunks for instant UI)
+  loadInitial: (): Promise<{
+    categories: any[];
+    items: any[];
+    totalItems: number;
+    chunkCount: number;
+    loadedChunks: number;
+  }> => ipcRenderer.invoke('json:loadInitial'),
+  
+  // Load remaining chunks (background)
+  loadRemainingChunks: (startChunk: number): Promise<any[]> =>
+    ipcRenderer.invoke('json:loadRemainingChunks', startChunk),
+  
+  // Full load (all chunks at once)
   load: (): Promise<{ version: number; lastModified: string; categories: any[]; items: any[] }> =>
     ipcRenderer.invoke('json:load'),
-
-  // Save all data to data.json
+  
+  // Save all data
   save: (data: { categories: any[]; items: any[] }): Promise<void> =>
     ipcRenderer.invoke('json:save', data),
-
-  // Export as JSON string
+  
+  // Update single chunk (partial save)
+  updateChunk: (chunkIndex: number, items: any[]): Promise<void> =>
+    ipcRenderer.invoke('json:updateChunk', chunkIndex, items),
+  
+  // Update categories only
+  updateCategories: (categories: any[]): Promise<void> =>
+    ipcRenderer.invoke('json:updateCategories', categories),
+  
+  // Export/Import
   export: (): Promise<string> =>
     ipcRenderer.invoke('json:export'),
-
-  // Import from JSON string
   import: (jsonString: string): Promise<{ success: boolean; items: number; categories: number }> =>
     ipcRenderer.invoke('json:import', jsonString),
-
-  // Create backup
+  
+  // Backup
   backup: (): Promise<string> =>
     ipcRenderer.invoke('json:backup'),
-
-  // Get storage info
-  getInfo: (): Promise<{ path: string; size: number; itemCount: number; categoryCount: number; lastModified: string }> =>
-    ipcRenderer.invoke('json:getInfo'),
+  
+  // Storage info
+  getInfo: (): Promise<{
+    path: string;
+    size: number;
+    itemCount: number;
+    categoryCount: number;
+    chunkCount: number;
+    chunkSize: number;
+    lastModified: string;
+  }> => ipcRenderer.invoke('json:getInfo'),
 });
 
 // Images API
 contextBridge.exposeInMainWorld('electronImages', {
-  // Save image (returns file paths)
   save: (id: string, data: Buffer | string): Promise<{ imagePath: string; thumbPath: string }> =>
     ipcRenderer.invoke('images:save', id, data),
-
-  // Load image URL
   load: (id: string, thumbnail?: boolean): Promise<string | null> =>
     ipcRenderer.invoke('images:load', id, thumbnail),
-
-  // Delete image
   delete: (id: string): Promise<void> =>
     ipcRenderer.invoke('images:delete', id),
-
-  // Batch save images
   batchSave: (images: Array<{ id: string; data: string }>): Promise<string[]> =>
     ipcRenderer.invoke('images:batchSave', images),
 });
 
-// App info
+// App utilities
 contextBridge.exposeInMainWorld('electronApp', {
   isElectron: true,
   platform: process.platform,
   version: process.env.npm_package_version || '1.0.0',
+  openDataFolder: (): Promise<void> =>
+    ipcRenderer.invoke('app:openDataFolder'),
+  getUserDataPath: (): Promise<string> =>
+    ipcRenderer.invoke('app:getUserDataPath'),
 });
 
-// Type declarations for renderer
-declare global {
-  interface Window {
-    electronJSON?: {
-      load: () => Promise<{ version: number; lastModified: string; categories: any[]; items: any[] }>;
-      save: (data: { categories: any[]; items: any[] }) => Promise<void>;
-      export: () => Promise<string>;
-      import: (jsonString: string) => Promise<{ success: boolean; items: number; categories: number }>;
-      backup: () => Promise<string>;
-      getInfo: () => Promise<{ path: string; size: number; itemCount: number; categoryCount: number; lastModified: string }>;
-    };
-    electronImages?: {
-      save: (id: string, data: Buffer | string) => Promise<{ imagePath: string; thumbPath: string }>;
-      load: (id: string, thumbnail?: boolean) => Promise<string | null>;
-      delete: (id: string) => Promise<void>;
-      batchSave: (images: Array<{ id: string; data: string }>) => Promise<string[]>;
-    };
-    electronApp?: {
-      isElectron: boolean;
-      platform: string;
-      version: string;
-    };
-  }
-}
+console.log('Electron preload: Chunked JSON API exposed');
