@@ -8,25 +8,8 @@
  * See electron-setup.md for the complete IPC bridge setup.
  */
 
-// Type for Electron IPC (will be injected via preload script)
-declare global {
-  interface Window {
-    electronImages?: {
-      // New simplified API (from preload.ts)
-      save?: (id: string, data: Buffer | string) => Promise<{ imagePath: string; thumbPath: string }>;
-      load?: (id: string, thumbnail?: boolean) => Promise<string | null>;
-      delete?: (id: string) => Promise<void>;
-      batchSave?: (images: Array<{ id: string; data: string }>) => Promise<string[]>;
-      // Legacy API (for backwards compatibility)
-      saveImage: (itemId: string, data: ArrayBuffer, extension: string) => Promise<string>;
-      loadImage: (filePath: string) => Promise<ArrayBuffer | null>;
-      deleteImage: (filePath: string) => Promise<boolean>;
-      getImagePath: (itemId: string) => Promise<string | null>;
-      getThumbnailPath: (itemId: string) => Promise<string | null>;
-      createThumbnail: (sourcePath: string, itemId: string, maxWidth: number, maxHeight: number) => Promise<string>;
-    };
-  }
-}
+// Types are declared in src/types/electron.d.ts
+/// <reference path="../../types/electron.d.ts" />
 
 export interface ImageStorageConfig {
   imagesDir: string;      // Directory for full-size images
@@ -58,14 +41,15 @@ export const isElectronImageStorageAvailable = (): boolean => {
  */
 export const saveItemImage = async (
   itemId: string,
-  imageData: ArrayBuffer,
+  imageData: ArrayBuffer | string,
   extension: string
 ): Promise<string> => {
   if (!window.electronImages) {
     throw new Error('Electron image storage not available');
   }
   
-  return window.electronImages.saveImage(itemId, imageData, extension);
+  const result = await window.electronImages.save(itemId, imageData as string);
+  return result.imagePath;
 };
 
 /**
@@ -73,12 +57,12 @@ export const saveItemImage = async (
  * @param filePath - Path to the image file
  * @returns Image data as ArrayBuffer, or null if not found
  */
-export const loadImage = async (filePath: string): Promise<ArrayBuffer | null> => {
+export const loadImage = async (filePath: string): Promise<string | null> => {
   if (!window.electronImages) {
     return null;
   }
   
-  return window.electronImages.loadImage(filePath);
+  return window.electronImages.load(filePath);
 };
 
 /**
@@ -113,12 +97,14 @@ export const filePathToUrl = (filePath: string): string => {
 /**
  * Delete an image file
  */
-export const deleteItemImage = async (filePath: string): Promise<boolean> => {
+export const deleteItemImage = async (filePath: string): Promise<void> => {
   if (!window.electronImages) {
-    return false;
+    return;
   }
   
-  return window.electronImages.deleteImage(filePath);
+  if (window.electronImages.delete) {
+    await window.electronImages.delete(filePath);
+  }
 };
 
 /**
@@ -185,9 +171,9 @@ export const loadImageWithCache = async (
   if (isElectronImageStorageAvailable()) {
     const data = await loadImage(filePath);
     if (data) {
-      const dataUrl = arrayBufferToDataUrl(data, mimeType);
-      imageCache.set(filePath, dataUrl);
-      return dataUrl;
+      // loadImage now returns string (data URL or file path) directly
+      imageCache.set(filePath, data);
+      return data;
     }
     return null;
   }
