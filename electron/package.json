@@ -21,7 +21,8 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
-    "sharp": "^0.33.5"
+    "sharp": "^0.33.5",
+    "sql.js": "^1.11.0"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.1",

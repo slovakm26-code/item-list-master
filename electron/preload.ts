@@ -1,65 +1,42 @@
 /**
- * Electron Preload Script - Chunked JSON Storage API
+ * Electron Preload Script - SQLite Storage API
  * 
  * Exposes secure IPC bridge for:
- * - Chunked JSON data operations (lazy loading, partial updates)
+ * - SQLite database operations via sql.js
  * - Image management
- * - App utilities (open data folder)
+ * - App utilities
  */
 
 import { contextBridge, ipcRenderer } from 'electron';
 
-// Chunked JSON Storage API
-contextBridge.exposeInMainWorld('electronJSON', {
-  // Initial load (first 2 chunks for instant UI)
-  loadInitial: (): Promise<{
-    categories: any[];
-    items: any[];
-    totalItems: number;
-    chunkCount: number;
-    loadedChunks: number;
-  }> => ipcRenderer.invoke('json:loadInitial'),
-  
-  // Load remaining chunks (background)
-  loadRemainingChunks: (startChunk: number): Promise<any[]> =>
-    ipcRenderer.invoke('json:loadRemainingChunks', startChunk),
-  
-  // Full load (all chunks at once)
-  load: (): Promise<{ version: number; lastModified: string; categories: any[]; items: any[] }> =>
-    ipcRenderer.invoke('json:load'),
-  
-  // Save all data
-  save: (data: { categories: any[]; items: any[] }): Promise<void> =>
-    ipcRenderer.invoke('json:save', data),
-  
-  // Update single chunk (partial save)
-  updateChunk: (chunkIndex: number, items: any[]): Promise<void> =>
-    ipcRenderer.invoke('json:updateChunk', chunkIndex, items),
-  
-  // Update categories only
-  updateCategories: (categories: any[]): Promise<void> =>
-    ipcRenderer.invoke('json:updateCategories', categories),
-  
-  // Export/Import
-  export: (): Promise<string> =>
-    ipcRenderer.invoke('json:export'),
-  import: (jsonString: string): Promise<{ success: boolean; items: number; categories: number }> =>
-    ipcRenderer.invoke('json:import', jsonString),
-  
-  // Backup
+// SQLite Database API
+contextBridge.exposeInMainWorld('electronDB', {
+  run: (sql: string, params?: any[]): Promise<{ changes: number; lastInsertRowid: number }> =>
+    ipcRenderer.invoke('db:run', sql, params),
+
+  get: (sql: string, params?: any[]): Promise<any | null> =>
+    ipcRenderer.invoke('db:get', sql, params),
+
+  all: (sql: string, params?: any[]): Promise<any[]> =>
+    ipcRenderer.invoke('db:all', sql, params),
+
+  exec: (sql: string): Promise<void> =>
+    ipcRenderer.invoke('db:exec', sql),
+
+  batchInsert: (sql: string, paramSets: any[][]): Promise<number> =>
+    ipcRenderer.invoke('db:batchInsert', sql, paramSets),
+
+  exportDB: (): Promise<Uint8Array> =>
+    ipcRenderer.invoke('db:exportDB'),
+
+  importDB: (data: Uint8Array): Promise<void> =>
+    ipcRenderer.invoke('db:importDB', data),
+
   backup: (): Promise<string> =>
-    ipcRenderer.invoke('json:backup'),
-  
-  // Storage info
-  getInfo: (): Promise<{
-    path: string;
-    size: number;
-    itemCount: number;
-    categoryCount: number;
-    chunkCount: number;
-    chunkSize: number;
-    lastModified: string;
-  }> => ipcRenderer.invoke('json:getInfo'),
+    ipcRenderer.invoke('db:backup'),
+
+  getInfo: (): Promise<{ path: string; size: number; walSize: number }> =>
+    ipcRenderer.invoke('db:getInfo'),
 });
 
 // Images API
@@ -85,4 +62,4 @@ contextBridge.exposeInMainWorld('electronApp', {
     ipcRenderer.invoke('app:getUserDataPath'),
 });
 
-console.log('Electron preload: Chunked JSON API exposed');
+console.log('Electron preload: SQLite API exposed');
