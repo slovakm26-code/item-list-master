@@ -4,11 +4,9 @@ import { AppState, Item, Category } from '@/types';
 
 /**
  * Storage Adapter Interface
- * Abstraction layer for different storage backends (localStorage, IndexedDB, SQLite)
- * Optimized for handling millions of items with FTS5, batch operations, and pagination
+ * Abstraction layer for different storage backends
  */
 export interface StorageAdapter {
-  // Initialization
   init(): Promise<void>;
   isReady(): boolean;
   
@@ -16,15 +14,13 @@ export interface StorageAdapter {
   loadState(): Promise<AppState | null>;
   saveState(state: AppState): Promise<void>;
   
-  // Item operations (optimized for large datasets)
+  // Item operations
   getItems(options?: QueryOptions): Promise<Item[]>;
   getItemById(id: string): Promise<Item | null>;
   getItemCount(categoryId?: string): Promise<number>;
   addItem(item: Item): Promise<void>;
   updateItem(id: string, updates: Partial<Item>): Promise<void>;
   deleteItems(ids: string[]): Promise<void>;
-  
-  // Batch operations (critical for performance with large imports)
   addItems?(items: Item[], onProgress?: (count: number) => void): Promise<void>;
   
   // Category operations
@@ -33,26 +29,22 @@ export interface StorageAdapter {
   updateCategory(id: string, updates: Partial<Category>): Promise<void>;
   deleteCategory(id: string): Promise<void>;
   
-  // Search (FTS5 optimized for large datasets)
+  // Search
   searchItems(query: string, categoryId?: string): Promise<Item[]>;
   fullTextSearch?(query: string, options?: FTSOptions): Promise<Item[]>;
   
-  // Backup operations
+  // Export/Import
   exportData(): Promise<ExportData>;
   importData(data: ExportData, onProgress?: (count: number) => void): Promise<void>;
   
-  // Raw database export/import (SQLite specific)
+  // Raw database export/import
   exportDatabase(): Uint8Array | null;
   importDatabase(data: Uint8Array): Promise<void>;
   
-  // Database maintenance
+  // Maintenance
   vacuum?(): Promise<void>;
   optimize?(): Promise<void>;
-  
-  // Statistics
   getStatistics?(): Promise<DatabaseStatistics>;
-  
-  // Storage info
   getStorageInfo(): Promise<StorageInfo>;
 }
 
@@ -63,7 +55,6 @@ export interface QueryOptions {
   sortColumn?: keyof Item;
   sortDirection?: 'asc' | 'desc';
   searchQuery?: string;
-  // FTS5 full-text search
   useFTS?: boolean;
 }
 
@@ -71,7 +62,6 @@ export interface FTSOptions {
   categoryId?: string;
   limit?: number;
   offset?: number;
-  // FTS5 match mode: 'prefix' for autocomplete, 'phrase' for exact
   matchMode?: 'prefix' | 'phrase' | 'any';
 }
 
@@ -89,7 +79,6 @@ export interface StorageInfo {
   maxBytes: number;
   itemCount: number;
   supportsLargeDatasets: boolean;
-  // SQLite specific info
   walMode?: boolean;
   ftsEnabled?: boolean;
 }
@@ -103,17 +92,9 @@ export interface DatabaseStatistics {
   itemsByYear: Record<number, number>;
 }
 
-// Storage type detection for future Electron
-export const detectStorageType = (): 'localStorage' | 'indexedDB' | 'electronJSON' => {
-  // Detect Electron JSON storage
-  if (typeof window !== 'undefined' && window.electronJSON) {
-    return 'electronJSON';
+export const detectStorageType = (): 'indexedDB' | 'sqlite' => {
+  if (typeof window !== 'undefined' && window.electronDB) {
+    return 'sqlite';
   }
-  
-  // Check IndexedDB support
-  if (typeof indexedDB !== 'undefined') {
-    return 'indexedDB';
-  }
-  
-  return 'localStorage';
+  return 'indexedDB';
 };

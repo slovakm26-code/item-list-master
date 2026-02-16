@@ -1,51 +1,40 @@
 /**
  * Electron API Type Declarations
  * 
- * Types for window.electronJSON, window.electronImages, and window.electronApp
+ * Types for window.electronDB (SQLite), window.electronImages, and window.electronApp
  * exposed via preload script.
  */
 
-interface ElectronJSONAPI {
-  // Initial load (first 2 chunks for instant UI)
-  loadInitial: () => Promise<{
-    categories: any[];
-    items: any[];
-    totalItems: number;
-    chunkCount: number;
-    loadedChunks: number;
-  }>;
+interface ElectronDBAPI {
+  // Execute SQL (INSERT, UPDATE, DELETE, CREATE)
+  run: (sql: string, params?: any[]) => Promise<{ changes: number; lastInsertRowid: number }>;
   
-  // Load remaining chunks (background)
-  loadRemainingChunks: (startChunk: number) => Promise<any[]>;
+  // Query single row
+  get: (sql: string, params?: any[]) => Promise<any | null>;
   
-  // Full load (all chunks at once)
-  load: () => Promise<{ version: number; lastModified: string; categories: any[]; items: any[] }>;
+  // Query multiple rows
+  all: (sql: string, params?: any[]) => Promise<any[]>;
   
-  // Save all data
-  save: (data: { categories: any[]; items: any[] }) => Promise<void>;
+  // Execute multiple statements (for schema init)
+  exec: (sql: string) => Promise<void>;
   
-  // Update single chunk (partial save)
-  updateChunk: (chunkIndex: number, items: any[]) => Promise<void>;
+  // Batch insert (optimized with transaction)
+  batchInsert: (sql: string, paramSets: any[][]) => Promise<number>;
   
-  // Update categories only
-  updateCategories: (categories: any[]) => Promise<void>;
+  // Export database as binary
+  exportDB: () => Promise<Uint8Array>;
   
-  // Export/Import
-  export: () => Promise<string>;
-  import: (jsonString: string) => Promise<{ success: boolean; items: number; categories: number }>;
+  // Import database from binary
+  importDB: (data: Uint8Array) => Promise<void>;
   
-  // Backup
+  // Backup database
   backup: () => Promise<string>;
   
-  // Storage info
+  // Database info
   getInfo: () => Promise<{
     path: string;
     size: number;
-    itemCount: number;
-    categoryCount: number;
-    chunkCount: number;
-    chunkSize: number;
-    lastModified: string;
+    walSize: number;
   }>;
 }
 
@@ -53,7 +42,6 @@ interface ElectronImagesAPI {
   save: (id: string, data: Buffer | string) => Promise<{ imagePath: string; thumbPath: string }>;
   load: (id: string, thumbnail?: boolean) => Promise<string | null>;
   delete: (id: string) => Promise<void>;
-  deleteImage?: (id: string) => Promise<void>; // Alias for compatibility
   batchSave: (images: Array<{ id: string; data: string }>) => Promise<string[]>;
 }
 
@@ -67,7 +55,7 @@ interface ElectronAppAPI {
 
 declare global {
   interface Window {
-    electronJSON?: ElectronJSONAPI;
+    electronDB?: ElectronDBAPI;
     electronImages?: ElectronImagesAPI;
     electronApp?: ElectronAppAPI;
   }
