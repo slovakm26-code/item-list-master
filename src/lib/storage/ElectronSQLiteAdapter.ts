@@ -1,7 +1,7 @@
 /**
  * Electron SQLite Storage Adapter
  * 
- * Uses sql.js (WASM) running in Electron main process via IPC.
+ * Uses native sqlite3 bindings running in Electron main process via IPC.
  * All SQL operations are proxied through window.electronDB.
  */
 /// <reference path="../../types/electron.d.ts" />
