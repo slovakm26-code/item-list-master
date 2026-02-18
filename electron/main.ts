@@ -1,11 +1,12 @@
 /**
- * Electron Main Process - SQLite Storage (sql.js WASM)
+ * Electron Main Process - SQLite Storage (sqlite3 native)
  * 
  * Architecture:
  * - Single .db file with WAL mode
  * - FTS5 full-text search
  * - IPC bridge for renderer SQL operations
  * - Image storage as separate files on disk
+ * - Window bounds persistence
  */
 
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
@@ -19,81 +20,119 @@ const DB_PATH = path.join(USER_DATA, 'stuff-organizer.db');
 const IMAGES_DIR = path.join(USER_DATA, 'images');
 const THUMBS_DIR = path.join(USER_DATA, 'thumbnails');
 const BACKUP_DIR = path.join(USER_DATA, 'backups');
+const WINDOW_STATE_PATH = path.join(USER_DATA, 'window-state.json');
 
 // Create directories
 [IMAGES_DIR, THUMBS_DIR, BACKUP_DIR].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// sql.js database instance
+// sqlite3 database instance
 let db: any = null;
 
+// ============================================
+// Window State Persistence
+// ============================================
+interface WindowState {
+  width: number;
+  height: number;
+  x?: number;
+  y?: number;
+  isMaximized?: boolean;
+}
+
+function loadWindowState(): WindowState {
+  try {
+    if (fs.existsSync(WINDOW_STATE_PATH)) {
+      const data = fs.readFileSync(WINDOW_STATE_PATH, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch {}
+  return { width: 1400, height: 900 };
+}
+
+function saveWindowState(win: BrowserWindow): void {
+  try {
+    const isMaximized = win.isMaximized();
+    const bounds = win.getNormalBounds();
+    const state: WindowState = {
+      width: bounds.width,
+      height: bounds.height,
+      x: bounds.x,
+      y: bounds.y,
+      isMaximized,
+    };
+    fs.writeFileSync(WINDOW_STATE_PATH, JSON.stringify(state));
+  } catch (e) {
+    console.error('Failed to save window state:', e);
+  }
+}
+
+// ============================================
+// Database Helpers (promisified sqlite3)
+// ============================================
+
+function dbRun(sql: string, params: any[] = []): Promise<{ changes: number; lastInsertRowid: number }> {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function (this: any, err: Error | null) {
+      if (err) return reject(err);
+      resolve({ changes: this.changes, lastInsertRowid: this.lastID });
+    });
+  });
+}
+
+function dbGet(sql: string, params: any[] = []): Promise<any | null> {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err: Error | null, row: any) => {
+      if (err) return reject(err);
+      resolve(row || null);
+    });
+  });
+}
+
+function dbAll(sql: string, params: any[] = []): Promise<any[]> {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err: Error | null, rows: any[]) => {
+      if (err) return reject(err);
+      resolve(rows || []);
+    });
+  });
+}
+
+function dbExec(sql: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    db.exec(sql, (err: Error | null) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
+}
+
 /**
- * Initialize sql.js and open/create database
+ * Initialize sqlite3 native database
  */
 async function initDatabase(): Promise<void> {
-  const initSqlJs = (await import('sql.js')).default;
-  
-  // Initialize sql.js with WASM
-  const SQL = await initSqlJs();
-  
-  // Load existing database or create new one
-  if (fs.existsSync(DB_PATH)) {
-    const buffer = await fsp.readFile(DB_PATH);
-    db = new SQL.Database(buffer);
-    console.log('Database loaded from:', DB_PATH);
-  } else {
-    db = new SQL.Database();
-    console.log('New database created');
-  }
+  const sqlite3 = (await import('sqlite3')).default.verbose();
 
-  // Set pragmas
-  db.run('PRAGMA journal_mode = WAL');
-  db.run('PRAGMA synchronous = NORMAL');
-  db.run('PRAGMA cache_size = -64000');
-  db.run('PRAGMA temp_store = MEMORY');
-  db.run('PRAGMA foreign_keys = ON');
-}
+  return new Promise((resolve, reject) => {
+    db = new sqlite3.Database(DB_PATH, (err: Error | null) => {
+      if (err) return reject(err);
 
-/**
- * Save database to disk (atomic write)
- */
-async function saveDatabase(): Promise<void> {
-  if (!db) return;
-  
-  const data = db.export();
-  const buffer = Buffer.from(data);
-  const tempPath = DB_PATH + '.tmp';
-  
-  try {
-    await fsp.writeFile(tempPath, buffer);
-    await fsp.rename(tempPath, DB_PATH);
-  } catch (error) {
-    console.error('Failed to save database:', error);
-    try { await fsp.unlink(tempPath); } catch {}
-    throw error;
-  }
-}
+      console.log('Database opened:', DB_PATH);
 
-// Auto-save interval (every 30 seconds if dirty)
-let isDirty = false;
-let saveInterval: NodeJS.Timeout;
+      // Set pragmas for performance
+      db.serialize(() => {
+        db.run('PRAGMA journal_mode = WAL');
+        db.run('PRAGMA synchronous = NORMAL');
+        db.run('PRAGMA cache_size = -64000');
+        db.run('PRAGMA temp_store = MEMORY');
+        db.run('PRAGMA mmap_size = 268435456');
+        db.run('PRAGMA foreign_keys = ON');
+      });
 
-function markDirty() {
-  isDirty = true;
-}
-
-function startAutoSave() {
-  saveInterval = setInterval(async () => {
-    if (isDirty && db) {
-      try {
-        await saveDatabase();
-        isDirty = false;
-      } catch (e) {
-        console.error('Auto-save failed:', e);
-      }
-    }
-  }, 30_000);
+      resolve();
+    });
+  });
 }
 
 // ============================================
@@ -102,89 +141,76 @@ function startAutoSave() {
 function setupDatabaseIPC() {
   // Execute SQL (for schema init, multiple statements)
   ipcMain.handle('db:exec', async (_event, sql: string) => {
-    db.exec(sql);
-    markDirty();
-    await saveDatabase();
+    await dbExec(sql);
   });
 
   // Run single statement (INSERT, UPDATE, DELETE)
   ipcMain.handle('db:run', async (_event, sql: string, params?: any[]) => {
-    db.run(sql, params || []);
-    markDirty();
-    const info = db.getRowsModified();
-    return { changes: info, lastInsertRowid: 0 };
+    return dbRun(sql, params || []);
   });
 
   // Query single row
-  ipcMain.handle('db:get', (_event, sql: string, params?: any[]) => {
-    const stmt = db.prepare(sql);
-    if (params) stmt.bind(params);
-    
-    if (stmt.step()) {
-      const row = stmt.getAsObject();
-      stmt.free();
-      return row;
-    }
-    stmt.free();
-    return null;
+  ipcMain.handle('db:get', async (_event, sql: string, params?: any[]) => {
+    return dbGet(sql, params || []);
   });
 
   // Query multiple rows
-  ipcMain.handle('db:all', (_event, sql: string, params?: any[]) => {
-    const results: any[] = [];
-    const stmt = db.prepare(sql);
-    if (params) stmt.bind(params);
-    
-    while (stmt.step()) {
-      results.push(stmt.getAsObject());
-    }
-    stmt.free();
-    return results;
+  ipcMain.handle('db:all', async (_event, sql: string, params?: any[]) => {
+    return dbAll(sql, params || []);
   });
 
   // Batch insert (in transaction for performance)
   ipcMain.handle('db:batchInsert', async (_event, sql: string, paramSets: any[][]) => {
-    db.run('BEGIN TRANSACTION');
+    await dbExec('BEGIN TRANSACTION');
     try {
       const stmt = db.prepare(sql);
       for (const params of paramSets) {
-        stmt.run(params);
+        await new Promise<void>((resolve, reject) => {
+          stmt.run(params, (err: Error | null) => {
+            if (err) return reject(err);
+            resolve();
+          });
+        });
       }
-      stmt.free();
-      db.run('COMMIT');
-      markDirty();
-      await saveDatabase();
+      await new Promise<void>((resolve, reject) => {
+        stmt.finalize((err: Error | null) => {
+          if (err) return reject(err);
+          resolve();
+        });
+      });
+      await dbExec('COMMIT');
       return paramSets.length;
     } catch (error) {
-      db.run('ROLLBACK');
+      await dbExec('ROLLBACK');
       throw error;
     }
   });
 
-  // Export database as binary
-  ipcMain.handle('db:exportDB', () => {
-    const data = db.export();
+  // Export database as binary copy
+  ipcMain.handle('db:exportDB', async () => {
+    const data = await fsp.readFile(DB_PATH);
     return new Uint8Array(data);
   });
 
   // Import database from binary
   ipcMain.handle('db:importDB', async (_event, data: Uint8Array) => {
-    const initSqlJs = (await import('sql.js')).default;
-    const SQL = await initSqlJs();
-    
-    if (db) db.close();
-    db = new SQL.Database(data);
-    await saveDatabase();
+    // Close current db
+    await new Promise<void>((resolve) => {
+      db.close(() => resolve());
+    });
+
+    // Write new db file
+    await fsp.writeFile(DB_PATH, Buffer.from(data));
+
+    // Reopen
+    await initDatabase();
   });
 
   // Backup
   ipcMain.handle('db:backup', async () => {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const backupPath = path.join(BACKUP_DIR, `backup-${timestamp}.db`);
-    
-    const data = db.export();
-    await fsp.writeFile(backupPath, Buffer.from(data));
-    
+    await fsp.copyFile(DB_PATH, backupPath);
     console.log('Backup created:', backupPath);
     return backupPath;
   });
@@ -193,7 +219,7 @@ function setupDatabaseIPC() {
   ipcMain.handle('db:getInfo', async () => {
     let size = 0;
     let walSize = 0;
-    
+
     try {
       if (fs.existsSync(DB_PATH)) {
         size = (await fsp.stat(DB_PATH)).size;
@@ -296,15 +322,48 @@ function setupImageIPC() {
 // ============================================
 // Window
 // ============================================
+let mainWindow: BrowserWindow | null = null;
+
 function createWindow() {
-  const mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+  const savedState = loadWindowState();
+
+  mainWindow = new BrowserWindow({
+    width: savedState.width,
+    height: savedState.height,
+    x: savedState.x,
+    y: savedState.y,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
+  });
+
+  if (savedState.isMaximized) {
+    mainWindow.maximize();
+  }
+
+  // Save window state on resize/move (debounced)
+  let saveTimeout: NodeJS.Timeout | null = null;
+  const debouncedSave = () => {
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        saveWindowState(mainWindow);
+      }
+    }, 500);
+  };
+
+  mainWindow.on('resize', debouncedSave);
+  mainWindow.on('move', debouncedSave);
+  mainWindow.on('maximize', debouncedSave);
+  mainWindow.on('unmaximize', debouncedSave);
+
+  // Save on close
+  mainWindow.on('close', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      saveWindowState(mainWindow);
+    }
   });
 
   if (process.env.NODE_ENV === 'development') {
@@ -322,7 +381,6 @@ app.whenReady().then(async () => {
   await initDatabase();
   setupDatabaseIPC();
   setupImageIPC();
-  startAutoSave();
   createWindow();
 
   app.on('activate', () => {
@@ -331,22 +389,22 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', async () => {
-  // Save before quit
-  clearInterval(saveInterval);
-  if (isDirty && db) {
-    await saveDatabase();
+  if (db) {
+    await new Promise<void>((resolve) => {
+      db.close(() => resolve());
+    });
   }
-  if (db) db.close();
-  
+
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
 app.on('before-quit', async () => {
-  clearInterval(saveInterval);
-  if (isDirty && db) {
-    await saveDatabase();
+  if (db) {
+    await new Promise<void>((resolve) => {
+      db.close(() => resolve());
+    });
+    db = null;
   }
-  if (db) db.close();
 });

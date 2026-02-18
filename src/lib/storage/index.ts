@@ -2,8 +2,8 @@
  * Storage Module
  * @packageDocumentation
  * 
- * - Web: JSONStorageAdapter (IndexedDB)
- * - Electron: ElectronSQLiteAdapter (sql.js via IPC)
+ * - Web: JSONStorageAdapter (IndexedDB) - fallback for browser preview
+ * - Electron: ElectronSQLiteAdapter (native sqlite3 via IPC)
  */
 /// <reference path="../../types/electron.d.ts" />
 

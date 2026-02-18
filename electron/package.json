@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "sharp": "^0.33.5",
-    "sql.js": "^1.11.0"
+    "sqlite3": "^5.1.7"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.1",
@@ -55,6 +55,9 @@
       }
     ],
     "asar": true,
+    "asarUnpack": [
+      "node_modules/sqlite3/**/*"
+    ],
     "compression": "maximum",
     "electronArgs": ["--max-old-space-size=12288"],
     "win": {
