@@ -134,22 +134,47 @@
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 
-  /* Custom scrollbar - minimal */
+  /* Custom scrollbar */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-transparent;
+    @apply bg-muted/30;
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20 rounded-full;
+    @apply bg-muted-foreground/25 rounded-full;
+    border: 2px solid transparent;
+    background-clip: padding-box;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/30;
+    @apply bg-muted-foreground/40;
+  }
+
+  /* Virtuoso list scrollbar - always visible */
+  .virtuoso-scroller {
+    overflow-y: scroll !important;
+  }
+
+  .virtuoso-scroller::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .virtuoso-scroller::-webkit-scrollbar-track {
+    @apply bg-muted/20;
+  }
+
+  .virtuoso-scroller::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/30 rounded-full;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .virtuoso-scroller::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
   }
 }
 

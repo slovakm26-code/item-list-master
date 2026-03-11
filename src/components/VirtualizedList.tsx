@@ -377,6 +377,7 @@ export const VirtualizedList = ({
           <Virtuoso
             ref={virtuosoRef}
             style={{ flex: 1 }}
+            className="virtuoso-scroller"
             totalCount={items.length}
             itemContent={itemContent}
             overscan={200}

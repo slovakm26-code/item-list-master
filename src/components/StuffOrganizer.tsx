@@ -1,15 +1,12 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useStorage } from '@/hooks/useStorage';
 import { useUIPreferences } from '@/hooks/useUIPreferences';
-import { useFileSystemStorage } from '@/hooks/useFileSystemStorage';
 import { Toolbar } from '@/components/Toolbar';
 import { CategoryTree } from '@/components/CategoryTree';
 import { VirtualizedList } from '@/components/VirtualizedList';
 import { DetailPanel } from '@/components/DetailPanel';
 import { ItemDialog } from '@/components/ItemDialog';
 import { BackupDialog } from '@/components/BackupDialog';
-import { StorageConnectionDialog } from '@/components/StorageConnectionDialog';
-import { CustomFieldFilter } from '@/components/CustomFieldFilter';
 import { Item, SortableColumn, CustomFieldFilter as CustomFieldFilterType } from '@/types';
 import { downloadExportWithImages, importDatabaseWithImages } from '@/lib/exportWithImages';
 import { toast } from 'sonner';
@@ -25,29 +22,24 @@ export const StuffOrganizer = () => {
     isReady,
     error,
     storageInfo,
-    // Categories
     addCategory,
     updateCategory,
     deleteCategory,
     moveCategoryUp,
     moveCategoryDown,
-    // Items
     addItem,
     updateItem,
     deleteItems,
     moveItemsToCategory,
     moveItemUp,
     moveItemDown,
-    // Selection
     setSelectedCategory,
     setSelectedItems,
     toggleItemSelection,
-    // Search and sort
     setSearchQuery,
     setSorting,
     setUseManualOrder,
     setCustomFieldFilters,
-    // Computed
     filteredItems,
     selectedItem,
     getCategoryItemCount,
@@ -64,42 +56,16 @@ export const StuffOrganizer = () => {
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [backupDialogOpen, setBackupDialogOpen] = useState(false);
-  const [storageDialogOpen, setStorageDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // File system storage hook
-  const fileSystemStorage = useFileSystemStorage();
-
-  // Track last saved data hash to prevent unnecessary saves
-  const lastSavedHashRef = useRef<string>('');
-
-  // Auto-save to file system when connected - ONLY when data changes
-  useEffect(() => {
-    if (!fileSystemStorage.isConnected) return;
-
-    // Create hash of actual data (not UI state like selection)
-    const dataHash = JSON.stringify({
-      items: state.items,
-      categories: state.categories,
-    });
-
-    // Only save if data actually changed
-    if (dataHash !== lastSavedHashRef.current) {
-      lastSavedHashRef.current = dataHash;
-      fileSystemStorage.save(state).catch(console.error);
-    }
-  }, [state.items, state.categories, fileSystemStorage.isConnected]);
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts when typing in inputs
       const target = e.target as HTMLElement;
       const isInputFocused = target.tagName === 'INPUT' || 
                              target.tagName === 'TEXTAREA' || 
                              target.isContentEditable;
 
-      // Ctrl/Cmd + F - Focus search (works even in inputs)
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault();
         const searchInput = document.querySelector<HTMLInputElement>('[data-search-input]');
@@ -108,10 +74,8 @@ export const StuffOrganizer = () => {
         return;
       }
 
-      // Skip other shortcuts if in input
       if (isInputFocused) return;
 
-      // Ctrl/Cmd + N - New item
       if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
         e.preventDefault();
         setEditingItem(null);
@@ -119,7 +83,6 @@ export const StuffOrganizer = () => {
         return;
       }
 
-      // Delete - Delete selected items
       if (e.key === 'Delete' && state.selectedItemIds.length > 0) {
         e.preventDefault();
         deleteItems(state.selectedItemIds);
@@ -127,14 +90,12 @@ export const StuffOrganizer = () => {
         return;
       }
 
-      // Escape - Clear selection
       if (e.key === 'Escape') {
         e.preventDefault();
         setSelectedItems([]);
         return;
       }
 
-      // Enter - Edit selected item (if single item selected)
       if (e.key === 'Enter' && state.selectedItemIds.length === 1) {
         e.preventDefault();
         const item = filteredItems.find(i => i.id === state.selectedItemIds[0]);
@@ -145,12 +106,10 @@ export const StuffOrganizer = () => {
         return;
       }
 
-      // Arrow Up/Down - Navigate items
       if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && filteredItems.length > 0) {
         e.preventDefault();
         
         if (state.selectedItemIds.length === 0) {
-          // Select first item
           setSelectedItems([filteredItems[0].id]);
         } else {
           const currentIndex = filteredItems.findIndex(
@@ -165,7 +124,6 @@ export const StuffOrganizer = () => {
           }
 
           if (e.shiftKey) {
-            // Multi-select with Shift+Arrow
             const newId = filteredItems[newIndex].id;
             if (!state.selectedItemIds.includes(newId)) {
               setSelectedItems([...state.selectedItemIds, newId]);
@@ -177,7 +135,6 @@ export const StuffOrganizer = () => {
         return;
       }
 
-      // Ctrl/Cmd + A - Select all visible items
       if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
         e.preventDefault();
         setSelectedItems(filteredItems.map(i => i.id));
@@ -189,7 +146,6 @@ export const StuffOrganizer = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [state.selectedItemIds, filteredItems, deleteItems, setSelectedItems]);
 
-  // Convert column widths to object format
   const columnWidths = useMemo(() => {
     const widths: Record<string, number> = {};
     preferences.columnWidths.forEach(c => {
@@ -225,12 +181,8 @@ export const StuffOrganizer = () => {
 
   const handleExport = async () => {
     try {
-      // Export with embedded images if storage is connected
-      await downloadExportWithImages(
-        state,
-        fileSystemStorage.isConnected ? fileSystemStorage.loadItemImage : undefined
-      );
-      toast.success('Database exported with images');
+      await downloadExportWithImages(state);
+      toast.success('Database exported');
     } catch (error) {
       console.error('Export failed:', error);
       toast.error('Failed to export database');
@@ -245,13 +197,7 @@ export const StuffOrganizer = () => {
     const file = e.target.files?.[0];
     if (file) {
       try {
-        // Import with image restoration if storage is connected
-        const data = await importDatabaseWithImages(
-          file,
-          fileSystemStorage.isConnected 
-            ? async (blob, itemId, ext) => fileSystemStorage.saveItemImageBlob(blob, itemId, ext)
-            : undefined
-        );
+        const data = await importDatabaseWithImages(file);
         
         replaceState({
           ...state,
@@ -259,8 +205,7 @@ export const StuffOrganizer = () => {
           items: data.items,
         });
         
-        toast.success(`Imported ${data.items.length} items` + 
-          (fileSystemStorage.isConnected ? ' with images' : ''));
+        toast.success(`Imported ${data.items.length} items`);
       } catch (error) {
         console.error('Import failed:', error);
         toast.error('Failed to import database. Invalid file format.');
@@ -272,14 +217,12 @@ export const StuffOrganizer = () => {
   };
 
   const handleBackup = () => {
-    // Create backup in localStorage
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const backupKey = `stuff_organizer_backup_${timestamp}`;
     localStorage.setItem(backupKey, JSON.stringify(state));
     toast.success('Backup created successfully');
   };
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 bg-background">
@@ -289,7 +232,6 @@ export const StuffOrganizer = () => {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="flex items-center justify-center h-screen p-8 bg-background">
@@ -310,7 +252,6 @@ export const StuffOrganizer = () => {
     );
   }
 
-  // Not ready yet (shouldn't happen, but safety check)
   if (!isReady) {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4 bg-background">
@@ -338,9 +279,7 @@ export const StuffOrganizer = () => {
         onImport={handleImport}
         onBackup={handleBackup}
         onManageBackups={() => setBackupDialogOpen(true)}
-        onOpenStorage={() => setStorageDialogOpen(true)}
         onOpenDataFolder={window.electronApp?.openDataFolder}
-        isStorageConnected={fileSystemStorage.isConnected}
         isElectron={!!window.electronApp?.isElectron}
         categories={state.categories}
         customFieldFilters={state.customFieldFilters || []}
@@ -348,7 +287,6 @@ export const StuffOrganizer = () => {
       />
 
       <div className="app-main flex-1 overflow-hidden">
-        {/* Top section: Sidebar + Table */}
         <div className="app-top-section">
           <CategoryTree
             categories={state.categories}
@@ -385,7 +323,6 @@ export const StuffOrganizer = () => {
           </div>
         </div>
 
-        {/* Bottom section: Detail panel */}
         <DetailPanel
           item={selectedItem}
           categories={state.categories}
@@ -398,7 +335,6 @@ export const StuffOrganizer = () => {
         />
       </div>
 
-      {/* Footer with storage info */}
       {storageInfo && (
         <footer className="flex items-center justify-between px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
@@ -425,16 +361,6 @@ export const StuffOrganizer = () => {
         open={backupDialogOpen}
         onOpenChange={setBackupDialogOpen}
         onRestore={replaceState}
-      />
-
-      <StorageConnectionDialog
-        open={storageDialogOpen}
-        onOpenChange={setStorageDialogOpen}
-        isSupported={fileSystemStorage.isSupported}
-        isConnected={fileSystemStorage.isConnected}
-        directoryName={fileSystemStorage.directoryName}
-        onConnect={fileSystemStorage.connect}
-        onDisconnect={fileSystemStorage.disconnect}
       />
     </div>
   );
