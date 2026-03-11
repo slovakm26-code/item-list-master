@@ -1,5 +1,5 @@
 /**
- * Electron Main Process - SQLite Storage (sqlite3 native)
+ * Electron Main Process - SQLite Storage (better-sqlite3 native)
  * 
  * Architecture:
  * - Single .db file with WAL mode
@@ -7,12 +7,14 @@
  * - IPC bridge for renderer SQL operations
  * - Image storage as separate files on disk
  * - Window bounds persistence
+ * - Detail panel state persistence
  */
 
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { promises as fsp } from 'fs';
+import Database from 'better-sqlite3';
 
 // Paths
 const USER_DATA = app.getPath('userData');
@@ -27,8 +29,8 @@ const WINDOW_STATE_PATH = path.join(USER_DATA, 'window-state.json');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// sqlite3 database instance
-let db: any = null;
+// better-sqlite3 database instance
+let db: Database.Database | null = null;
 
 // ============================================
 // Window State Persistence
@@ -69,70 +71,21 @@ function saveWindowState(win: BrowserWindow): void {
 }
 
 // ============================================
-// Database Helpers (promisified sqlite3)
+// Database Init (better-sqlite3 - synchronous)
 // ============================================
 
-function dbRun(sql: string, params: any[] = []): Promise<{ changes: number; lastInsertRowid: number }> {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function (this: any, err: Error | null) {
-      if (err) return reject(err);
-      resolve({ changes: this.changes, lastInsertRowid: this.lastID });
-    });
-  });
-}
+function initDatabase(): void {
+  db = new Database(DB_PATH);
 
-function dbGet(sql: string, params: any[] = []): Promise<any | null> {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err: Error | null, row: any) => {
-      if (err) return reject(err);
-      resolve(row || null);
-    });
-  });
-}
+  // Performance pragmas
+  db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = NORMAL');
+  db.pragma('cache_size = -64000');
+  db.pragma('temp_store = MEMORY');
+  db.pragma('mmap_size = 268435456');
+  db.pragma('foreign_keys = ON');
 
-function dbAll(sql: string, params: any[] = []): Promise<any[]> {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err: Error | null, rows: any[]) => {
-      if (err) return reject(err);
-      resolve(rows || []);
-    });
-  });
-}
-
-function dbExec(sql: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    db.exec(sql, (err: Error | null) => {
-      if (err) return reject(err);
-      resolve();
-    });
-  });
-}
-
-/**
- * Initialize sqlite3 native database
- */
-async function initDatabase(): Promise<void> {
-  const sqlite3 = (await import('sqlite3')).default.verbose();
-
-  return new Promise((resolve, reject) => {
-    db = new sqlite3.Database(DB_PATH, (err: Error | null) => {
-      if (err) return reject(err);
-
-      console.log('Database opened:', DB_PATH);
-
-      // Set pragmas for performance
-      db.serialize(() => {
-        db.run('PRAGMA journal_mode = WAL');
-        db.run('PRAGMA synchronous = NORMAL');
-        db.run('PRAGMA cache_size = -64000');
-        db.run('PRAGMA temp_store = MEMORY');
-        db.run('PRAGMA mmap_size = 268435456');
-        db.run('PRAGMA foreign_keys = ON');
-      });
-
-      resolve();
-    });
-  });
+  console.log('Database opened:', DB_PATH);
 }
 
 // ============================================
@@ -141,49 +94,38 @@ async function initDatabase(): Promise<void> {
 function setupDatabaseIPC() {
   // Execute SQL (for schema init, multiple statements)
   ipcMain.handle('db:exec', async (_event, sql: string) => {
-    await dbExec(sql);
+    db!.exec(sql);
   });
 
   // Run single statement (INSERT, UPDATE, DELETE)
   ipcMain.handle('db:run', async (_event, sql: string, params?: any[]) => {
-    return dbRun(sql, params || []);
+    const stmt = db!.prepare(sql);
+    const result = stmt.run(...(params || []));
+    return { changes: result.changes, lastInsertRowid: Number(result.lastInsertRowid) };
   });
 
   // Query single row
   ipcMain.handle('db:get', async (_event, sql: string, params?: any[]) => {
-    return dbGet(sql, params || []);
+    const stmt = db!.prepare(sql);
+    return stmt.get(...(params || [])) || null;
   });
 
   // Query multiple rows
   ipcMain.handle('db:all', async (_event, sql: string, params?: any[]) => {
-    return dbAll(sql, params || []);
+    const stmt = db!.prepare(sql);
+    return stmt.all(...(params || []));
   });
 
   // Batch insert (in transaction for performance)
   ipcMain.handle('db:batchInsert', async (_event, sql: string, paramSets: any[][]) => {
-    await dbExec('BEGIN TRANSACTION');
-    try {
-      const stmt = db.prepare(sql);
-      for (const params of paramSets) {
-        await new Promise<void>((resolve, reject) => {
-          stmt.run(params, (err: Error | null) => {
-            if (err) return reject(err);
-            resolve();
-          });
-        });
+    const stmt = db!.prepare(sql);
+    const insertMany = db!.transaction((rows: any[][]) => {
+      for (const params of rows) {
+        stmt.run(...params);
       }
-      await new Promise<void>((resolve, reject) => {
-        stmt.finalize((err: Error | null) => {
-          if (err) return reject(err);
-          resolve();
-        });
-      });
-      await dbExec('COMMIT');
-      return paramSets.length;
-    } catch (error) {
-      await dbExec('ROLLBACK');
-      throw error;
-    }
+    });
+    insertMany(paramSets);
+    return paramSets.length;
   });
 
   // Export database as binary copy
@@ -195,15 +137,13 @@ function setupDatabaseIPC() {
   // Import database from binary
   ipcMain.handle('db:importDB', async (_event, data: Uint8Array) => {
     // Close current db
-    await new Promise<void>((resolve) => {
-      db.close(() => resolve());
-    });
+    if (db) db.close();
 
     // Write new db file
     await fsp.writeFile(DB_PATH, Buffer.from(data));
 
     // Reopen
-    await initDatabase();
+    initDatabase();
   });
 
   // Backup
@@ -359,7 +299,6 @@ function createWindow() {
   mainWindow.on('maximize', debouncedSave);
   mainWindow.on('unmaximize', debouncedSave);
 
-  // Save on close
   mainWindow.on('close', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       saveWindowState(mainWindow);
@@ -377,8 +316,8 @@ function createWindow() {
 // ============================================
 // App Lifecycle
 // ============================================
-app.whenReady().then(async () => {
-  await initDatabase();
+app.whenReady().then(() => {
+  initDatabase();
   setupDatabaseIPC();
   setupImageIPC();
   createWindow();
@@ -388,11 +327,10 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on('window-all-closed', async () => {
+app.on('window-all-closed', () => {
   if (db) {
-    await new Promise<void>((resolve) => {
-      db.close(() => resolve());
-    });
+    db.close();
+    db = null;
   }
 
   if (process.platform !== 'darwin') {
@@ -400,11 +338,9 @@ app.on('window-all-closed', async () => {
   }
 });
 
-app.on('before-quit', async () => {
+app.on('before-quit', () => {
   if (db) {
-    await new Promise<void>((resolve) => {
-      db.close(() => resolve());
-    });
+    db.close();
     db = null;
   }
 });

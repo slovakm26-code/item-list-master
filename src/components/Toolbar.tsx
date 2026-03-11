@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Download, Upload, Database, Moon, Sun, Archive, Search, HardDrive, FolderOpen } from 'lucide-react';
+import { Plus, Download, Upload, Database, Moon, Sun, Archive, Search, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -23,9 +23,7 @@ interface ToolbarProps {
   onImport: () => void;
   onBackup: () => void;
   onManageBackups: () => void;
-  onOpenStorage: () => void;
   onOpenDataFolder?: () => void;
-  isStorageConnected?: boolean;
   isElectron?: boolean;
   categories: Category[];
   customFieldFilters: CustomFieldFilterType[];
@@ -40,9 +38,7 @@ export const Toolbar = ({
   onImport,
   onBackup,
   onManageBackups,
-  onOpenStorage,
   onOpenDataFolder,
-  isStorageConnected = false,
   isElectron = false,
   categories,
   customFieldFilters,
@@ -52,12 +48,10 @@ export const Toolbar = ({
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const debouncedSearch = useDebounce(localSearch, 300);
 
-  // Update parent when debounced value changes
   useEffect(() => {
     onSearchChange(debouncedSearch);
   }, [debouncedSearch, onSearchChange]);
 
-  // Sync local state with external changes
   useEffect(() => {
     setLocalSearch(searchQuery);
   }, [searchQuery]);
@@ -117,23 +111,6 @@ export const Toolbar = ({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        className="gap-1.5 h-8"
-        onClick={onOpenStorage}
-      >
-        <HardDrive className="w-4 h-4" />
-        {isStorageConnected ? (
-          <span className="flex items-center gap-1.5">
-            Storage
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-          </span>
-        ) : (
-          'Storage'
-        )}
-      </Button>
 
       <CustomFieldFilter
         categories={categories}
