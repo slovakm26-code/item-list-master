@@ -44,12 +44,12 @@
 
     --radius: 0.5rem;
 
-    /* Custom app variables */
-    --sidebar-width: 240px;
-    --toolbar-height: 48px;
-    --row-height: 32px;
-    --header-height: 32px;
-    --detail-height: 280px;
+    /* Custom app variables - compact layout */
+    --sidebar-width: 210px;
+    --toolbar-height: 38px;
+    --row-height: 24px;
+    --header-height: 26px;
+    --detail-height: 240px;
 
     --sidebar-background: 0 0% 7%;
     --sidebar-foreground: 0 0% 85%;
@@ -184,7 +184,7 @@
   }
 
   .app-toolbar {
-    @apply h-[var(--toolbar-height)] flex items-center px-4 gap-3 border-b bg-background;
+    @apply h-[var(--toolbar-height)] flex items-center px-2 gap-1.5 border-b bg-background;
   }
 
   .app-main {
@@ -205,15 +205,15 @@
 
   .app-detail {
     @apply flex flex-col border-t bg-card overflow-hidden rounded-t-lg;
-    min-height: 40px;
+    min-height: 32px;
   }
 
   .app-detail-content {
-    @apply flex-1 overflow-y-auto p-6;
+    @apply flex-1 overflow-y-auto p-3;
   }
 
   .tree-item {
-    @apply flex items-center gap-2 px-3 py-2 cursor-pointer transition-all duration-150 rounded-md mx-2;
+    @apply flex items-center gap-1.5 px-2 py-1 cursor-pointer transition-all duration-150 rounded-md mx-1;
   }
 
   .tree-item:hover {

@@ -60,7 +60,7 @@ interface VirtualizedListProps {
   onMoveItemDown: (itemId: string) => void;
 }
 
-const ROW_HEIGHT = 32;
+const ROW_HEIGHT = 24;
 
 // Memoized row component for maximum performance
 interface RowProps {
@@ -134,7 +134,7 @@ const VirtualRow = memo(({
       {columnDefs.map((column) => (
         <div
           key={column.key}
-          className="px-3 truncate shrink-0 text-sm flex items-center"
+          className="px-2 truncate shrink-0 text-xs flex items-center"
           style={{ width: getColumnWidth(column.key), height: ROW_HEIGHT }}
         >
           {getCellValue(item, column.key)}
@@ -287,12 +287,12 @@ export const VirtualizedList = ({
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Order mode toggle */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b bg-muted/30">
-        <span className="text-xs text-muted-foreground">Order:</span>
+      <div className="flex items-center gap-2 px-2 py-1 border-b bg-muted/30">
+        <span className="text-[11px] text-muted-foreground">Order:</span>
         <Button
           variant={!useManualOrder ? "secondary" : "ghost"}
           size="sm"
-          className="h-6 text-xs px-2"
+          className="h-5 text-[11px] px-1.5"
           onClick={() => onSetManualOrder(false)}
         >
           Auto
@@ -300,18 +300,18 @@ export const VirtualizedList = ({
         <Button
           variant={useManualOrder ? "secondary" : "ghost"}
           size="sm"
-          className="h-6 text-xs px-2"
+          className="h-5 text-[11px] px-1.5"
           onClick={() => onSetManualOrder(true)}
         >
           Manual
         </Button>
         {useManualOrder && selectedItemIds.length === 1 && (
           <>
-            <div className="w-px h-4 bg-border" />
+            <div className="w-px h-3 bg-border" />
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 text-xs gap-1 px-2"
+              className="h-5 text-[11px] gap-1 px-1.5"
               onClick={() => onMoveItemUp(selectedItemIds[0])}
             >
               <ArrowUp className="w-3 h-3" /> Up
@@ -319,7 +319,7 @@ export const VirtualizedList = ({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 text-xs gap-1 px-2"
+              className="h-5 text-[11px] gap-1 px-1.5"
               onClick={() => onMoveItemDown(selectedItemIds[0])}
             >
               <ArrowDown className="w-3 h-3" /> Down
@@ -327,7 +327,7 @@ export const VirtualizedList = ({
           </>
         )}
         <div className="flex-1" />
-        <span className="text-xs text-muted-foreground tabular-nums">
+        <span className="text-[11px] text-muted-foreground tabular-nums">
           {items.length.toLocaleString()} items {selectedItemIds.length > 0 && `· ${selectedItemIds.length} selected`}
         </span>
       </div>
@@ -353,7 +353,7 @@ export const VirtualizedList = ({
               >
                 <button
                   className={cn(
-                    "flex items-center gap-1 px-3 h-full text-left flex-1 text-xs font-medium text-muted-foreground",
+                    "flex items-center gap-1 px-2 h-full text-left flex-1 text-[11px] font-medium text-muted-foreground",
                     column.sortable && "hover:text-foreground cursor-pointer"
                   )}
                   onClick={() => column.sortable && onSort(column.key as SortableColumn)}
