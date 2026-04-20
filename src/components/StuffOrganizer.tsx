@@ -336,8 +336,8 @@ export const StuffOrganizer = () => {
       </div>
 
       {storageInfo && (
-        <footer className="flex items-center justify-between px-4 py-2 border-t bg-muted/30 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
+        <footer className="flex items-center justify-between px-3 py-1 border-t bg-muted/30 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-1.5">
             <Database className="h-3 w-3" />
             <span>JSON ({storageInfo.type})</span>
           </div>

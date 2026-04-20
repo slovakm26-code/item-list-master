@@ -64,9 +64,9 @@ export const Toolbar = ({
             onClick={onAddItem} 
             variant="ghost"
             size="sm" 
-            className="gap-1.5 h-8"
+            className="gap-1 h-7 px-2 text-xs"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             Add Item
           </Button>
         </TooltipTrigger>
@@ -77,8 +77,8 @@ export const Toolbar = ({
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="gap-1.5 h-8">
-            <Database className="w-4 h-4" />
+          <Button variant="ghost" size="sm" className="gap-1 h-7 px-2 text-xs">
+            <Database className="w-3.5 h-3.5" />
             Database
           </Button>
         </DropdownMenuTrigger>
@@ -120,14 +120,14 @@ export const Toolbar = ({
 
       <div className="flex-1" />
 
-      <div className="relative w-56">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+      <div className="relative w-52">
+        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
         <Input
           type="text"
           placeholder="Search... (Ctrl+F)"
           value={localSearch}
           onChange={(e) => setLocalSearch(e.target.value)}
-          className="h-8 text-sm pl-8"
+          className="h-7 text-xs pl-7"
           data-search-input
         />
       </div>
@@ -135,13 +135,13 @@ export const Toolbar = ({
       <Button 
         variant="ghost" 
         size="icon" 
-        className="w-8 h-8"
+        className="w-7 h-7"
         onClick={toggleTheme}
       >
         {theme === 'dark' ? (
-          <Sun className="w-4 h-4" />
+          <Sun className="w-3.5 h-3.5" />
         ) : (
-          <Moon className="w-4 h-4" />
+          <Moon className="w-3.5 h-3.5" />
         )}
       </Button>
     </div>

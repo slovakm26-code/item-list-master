@@ -131,11 +131,11 @@ const TreeNode = ({
           'tree-item group',
           isSelected && 'active'
         )}
-        style={{ paddingLeft: `${12 + level * 16}px` }}
+        style={{ paddingLeft: `${8 + level * 14}px` }}
         onClick={() => onSelect(category.id)}
       >
         <button
-          className="w-4 h-4 flex items-center justify-center shrink-0"
+          className="w-3.5 h-3.5 flex items-center justify-center shrink-0"
           onClick={(e) => {
             e.stopPropagation();
             if (hasChildren) onToggleExpand(category.id);
@@ -150,11 +150,11 @@ const TreeNode = ({
           ) : null}
         </button>
         
-        <CategoryIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+        <CategoryIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
         
-        <span className="flex-1 truncate text-sm">{category.name}</span>
+        <span className="flex-1 truncate text-xs">{category.name}</span>
         
-        <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
+        <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
           {itemCount}
         </span>
 
@@ -312,12 +312,12 @@ export const CategoryTree = ({
 
   return (
     <div className="app-sidebar">
-      <div className="flex items-center justify-between px-4 py-3 border-b">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Categories</span>
+      <div className="flex items-center justify-between px-2 py-1.5 border-b">
+        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Categories</span>
         <Button
           variant="ghost"
           size="icon"
-          className="w-6 h-6"
+          className="w-5 h-5"
           onClick={() => {
             setAddingToParent(null);
             setNewCategoryName('');
@@ -325,7 +325,7 @@ export const CategoryTree = ({
             setShowAddDialog(true);
           }}
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-3.5 h-3.5" />
         </Button>
       </div>
 
