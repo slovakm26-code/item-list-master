@@ -60,7 +60,7 @@ interface VirtualizedListProps {
   onMoveItemDown: (itemId: string) => void;
 }
 
-const ROW_HEIGHT = 32;
+const ROW_HEIGHT = 24;
 
 // Memoized row component for maximum performance
 interface RowProps {
